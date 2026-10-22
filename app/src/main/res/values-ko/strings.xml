@@ -112,6 +112,8 @@
     <string name="toast_overlay_not_running">먼저 ③으로 펫을 표시하세요</string>
     <string name="diag_hint">다른 앱에서 몇 글자 입력한 뒤 이 화면으로 돌아와 카운트를 확인하세요. 0이면 입력 이벤트가 오지 않고 있습니다.</string>
     <string name="btn_view_log">진단 로그 보기</string>
+    <string name="btn_clear_log">로그 지우기</string>
+    <string name="toast_log_cleared">로그를 지웠습니다</string>
     <string name="log_title">진단 로그</string>
     <string name="log_empty">로그가 없습니다</string>
     <string name="btn_copy">복사</string>
@@ -122,9 +124,7 @@
     <string name="switch_tilt_desc">스마트폰을 기울이면 펫이 중력 방향으로 살짝 미끄러지고 고개를 갸웃합니다.</string>
     <string name="label_tilt_sensitivity">기울기 감도</string>
     <string name="desc_tilt_sensitivity">스마트폰을 기울일 때 펫이 얼마나 민감하게 움직일지 정합니다.</string>
-    <string name="sensitivity_low">낮음</string>
-    <string name="sensitivity_medium">보통</string>
-    <string name="sensitivity_high">높음</string>
+    <string name="sensitivity_value">%1$d%%</string>
     <string name="desc_motion_battery">센서는 펫이 표시 중이고 화면이 켜져 있을 때만 사용합니다.</string>
     <string name="motion_unsupported">이 기기에는 가속도 센서가 없습니다.</string>
     <string name="btn_recenter_tilt">현재 각도를 기준으로</string>

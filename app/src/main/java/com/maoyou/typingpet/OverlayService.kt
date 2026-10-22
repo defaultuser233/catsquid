@@ -17,9 +17,11 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
+import kotlin.math.abs
 
 /** 表示中のキャラを1体ずつ別ウィンドウで画面に浮かせる(それぞれドラッグで移動できる) */
 class OverlayService : Service() {
@@ -29,6 +31,9 @@ class OverlayService : Service() {
 
     private lateinit var motion: MotionController
     private var screenOn = true
+    private var lastTiltX = 0f
+    private var lastTiltY = 0f
+    private var lastWindowMoveAt = 0L
 
     private val screenReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -51,7 +56,11 @@ class OverlayService : Service() {
         val params: WindowManager.LayoutParams,
         var keys: List<List<String>> = emptyList(),
         /** 「⌫ 消したとき」の項目の番号(なければ -1) */
-        var deleteIdx: Int = -1
+        var deleteIdx: Int = -1,
+        /** 傾き移動の基準位置(ドラッグで保存される位置) */
+        var baseX: Int = 0,
+        var baseY: Int = 0,
+        var dragging: Boolean = false
     )
 
     /** キャラid → 表示中のペット */
@@ -118,7 +127,12 @@ class OverlayService : Service() {
         screenOn = (getSystemService(POWER_SERVICE) as? PowerManager)?.isInteractive ?: true
         motion = MotionController(
             this,
-            onTilt = { nx, ny -> pets.values.forEach { it.view.setTilt(nx, ny) } }
+            onTilt = { nx, ny ->
+                lastTiltX = nx
+                lastTiltY = ny
+                pets.values.forEach { it.view.setTilt(nx, ny) }
+                updateWindowPositions()
+            }
         )
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
@@ -141,7 +155,38 @@ class OverlayService : Service() {
             motion.start()
         } else {
             motion.stop()
+            lastTiltX = 0f
+            lastTiltY = 0f
             pets.values.forEach { it.view.setTilt(0f, 0f) }
+            updateWindowPositions(force = true)
+        }
+    }
+
+    private fun updateWindowPositions(force: Boolean = false) {
+        if (pets.isEmpty()) return
+        val now = SystemClock.uptimeMillis()
+        if (!force && now - lastWindowMoveAt < 33L) return
+        lastWindowMoveAt = now
+
+        // 画面移動は感度と切り離し、小さめの固定範囲にする
+        val windowX = if (abs(lastTiltX) < 0.03f) 0f else (lastTiltX * 0.7f).coerceIn(-1f, 1f)
+        val windowY = if (abs(lastTiltY) < 0.03f) 0f else (lastTiltY * 0.7f).coerceIn(-1f, 1f)
+        val dm = resources.displayMetrics
+        val travel = minOf(dm.widthPixels, dm.heightPixels) * 0.10f
+        val dx = (windowX * travel).toInt()
+        val dy = (windowY * travel).toInt()
+
+        pets.values.forEach { p ->
+            if (p.dragging) return@forEach
+            val maxX = maxOf(0, dm.widthPixels - p.params.width)
+            val maxY = maxOf(0, dm.heightPixels - p.params.height)
+            val newX = (p.baseX + dx).coerceIn(0, maxX)
+            val newY = (p.baseY + dy).coerceIn(0, maxY)
+            if (newX != p.params.x || newY != p.params.y) {
+                p.params.x = newX
+                p.params.y = newY
+                try { windowManager.updateViewLayout(p.view, p.params) } catch (_: Exception) {}
+            }
         }
     }
 
@@ -203,6 +248,8 @@ class OverlayService : Service() {
             pet.params.width = sizePx
             pet.params.height = sizePx
             pet.params.flags = flags
+            pet.baseX = c.x
+            pet.baseY = c.y
             pet.params.x = c.x
             pet.params.y = c.y
             try { windowManager.updateViewLayout(pet.view, pet.params) } catch (e: Exception) {}
@@ -210,7 +257,7 @@ class OverlayService : Service() {
             pet.view.preset = c.preset
             pet.view.shakeLevel = Prefs.getShakeLevel(this)
             pet.view.showShadow = Prefs.getShowShadow(this)
-            pet.view.tiltSensitivity = Prefs.getTiltSensitivity(this)
+            pet.view.tiltSensitivityPct = Prefs.getTiltSensitivityPct(this)
             pet.view.setImages(
                 idle = c.idle.mapNotNull { get(it) },
                 steps = c.steps.map { s -> s.mapNotNull { get(it) } },
@@ -225,6 +272,7 @@ class OverlayService : Service() {
         maxKeyLen = pets.values.flatMap { it.keys.flatten() }.maxOfOrNull { it.length } ?: 0
         watchDel = pets.values.any { it.deleteIdx >= 0 || it.view.usesBuiltInArt }
         updateMotion()
+        updateWindowPositions(force = true)
     }
 
     private fun createPet(id: String): Pet? {
@@ -250,8 +298,10 @@ class OverlayService : Service() {
 
     /** キャラごとにドラッグで移動。離した位置をそのキャラに保存する */
     private fun setupTouch(pet: Pet) {
-        var startX = 0
-        var startY = 0
+        var startParamsX = 0
+        var startParamsY = 0
+        var startBaseX = 0
+        var startBaseY = 0
         var touchX = 0f
         var touchY = 0f
 
@@ -259,19 +309,33 @@ class OverlayService : Service() {
             if (Prefs.getPositionLocked(this)) return@setOnTouchListener false
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    startX = pet.params.x; startY = pet.params.y
-                    touchX = event.rawX; touchY = event.rawY
+                    pet.dragging = true
+                    startParamsX = pet.params.x
+                    startParamsY = pet.params.y
+                    startBaseX = pet.baseX
+                    startBaseY = pet.baseY
+                    touchX = event.rawX
+                    touchY = event.rawY
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    pet.params.x = startX + (event.rawX - touchX).toInt()
-                    pet.params.y = startY + (event.rawY - touchY).toInt()
+                    val dx = (event.rawX - touchX).toInt()
+                    val dy = (event.rawY - touchY).toInt()
+                    pet.baseX = startBaseX + dx
+                    pet.baseY = startBaseY + dy
+                    pet.params.x = startParamsX + dx
+                    pet.params.y = startParamsY + dy
                     try { windowManager.updateViewLayout(pet.view, pet.params) } catch (e: Exception) {}
                     true
                 }
-                MotionEvent.ACTION_UP -> {
-                    Prefs.setCharPos(this, pet.id, pet.params.x, pet.params.y)
-                    pet.view.react()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    pet.dragging = false
+                    val dm = resources.displayMetrics
+                    pet.baseX = pet.baseX.coerceIn(0, maxOf(0, dm.widthPixels - pet.params.width))
+                    pet.baseY = pet.baseY.coerceIn(0, maxOf(0, dm.heightPixels - pet.params.height))
+                    Prefs.setCharPos(this, pet.id, pet.baseX, pet.baseY)
+                    updateWindowPositions(force = true)
+                    if (event.action == MotionEvent.ACTION_UP) pet.view.react()
                     true
                 }
                 else -> false

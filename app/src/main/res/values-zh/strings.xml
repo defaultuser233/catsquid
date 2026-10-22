@@ -111,6 +111,8 @@
     <string name="toast_overlay_not_running">请先点③显示宠物</string>
     <string name="diag_hint">去其他应用输入几个字，再回到这里查看计数。如果一直是 0，说明输入事件没有进来。</string>
     <string name="btn_view_log">查看诊断日志</string>
+    <string name="btn_clear_log">清空日志</string>
+    <string name="toast_log_cleared">日志已清空</string>
     <string name="log_title">诊断日志</string>
     <string name="log_empty">还没有日志</string>
     <string name="btn_copy">复制</string>
@@ -121,9 +123,7 @@
     <string name="switch_tilt_desc">倾斜手机时，宠物会朝重力方向轻轻滑动并歪头。</string>
     <string name="label_tilt_sensitivity">倾斜灵敏度</string>
     <string name="desc_tilt_sensitivity">倾斜手机时宠物跟随的灵敏程度。</string>
-    <string name="sensitivity_low">低</string>
-    <string name="sensitivity_medium">中</string>
-    <string name="sensitivity_high">高</string>
+    <string name="sensitivity_value">%1$d%%</string>
     <string name="desc_motion_battery">仅在宠物显示且屏幕亮起时读取传感器。</string>
     <string name="motion_unsupported">此设备没有加速度传感器。</string>
     <string name="btn_recenter_tilt">以当前角度为基准</string>

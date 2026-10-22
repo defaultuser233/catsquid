@@ -27,6 +27,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
@@ -309,20 +310,23 @@ class MainActivity : Activity() {
                     }
                 })
             })
-            addView(Button(this@MainActivity).apply {
-                tag = "small"
-                text = getString(R.string.btn_view_log)
-                setOnClickListener { showLogDialog() }
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply { topMargin = dp(8) }
+                addView(Button(this@MainActivity).apply {
+                    tag = "small"
+                    text = getString(R.string.btn_view_log)
+                    setOnClickListener { showLogDialog() }
+                })
             })
         }
     }
 
     private fun showLogDialog() {
-        val text = DiagLog.read(this).takeLast(8000)
+        var text = DiagLog.read(this).takeLast(8000)
         if (text.isBlank()) {
             Toast.makeText(this, getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
             return
@@ -348,6 +352,13 @@ class MainActivity : Activity() {
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 cm.setPrimaryClip(android.content.ClipData.newPlainText("diag", text))
                 Toast.makeText(this, getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton(getString(R.string.btn_clear_log)) { _, _ ->
+                DiagLog.clear(this)
+                PetAccessibilityService.clearDiagnostics()
+                text = ""
+                content.text = getString(R.string.log_empty)
+                Toast.makeText(this, getString(R.string.toast_log_cleared), Toast.LENGTH_SHORT).show()
             }
             .show()
     }
@@ -667,18 +678,43 @@ class MainActivity : Activity() {
             addView(smallLabel(getString(R.string.label_tilt_sensitivity)))
             addView(descLabel(getString(R.string.desc_tilt_sensitivity)))
             addView(spacer(8))
-            addView(segRow(
-                listOf(
-                    getString(R.string.sensitivity_low) to "0",
-                    getString(R.string.sensitivity_medium) to "1",
-                    getString(R.string.sensitivity_high) to "2"
-                ),
-                Prefs.getTiltSensitivity(this@MainActivity).toString()
-            ) { key ->
-                Prefs.setTiltSensitivity(this@MainActivity, key.toInt())
-                OverlayService.refreshIfRunning()
-                renderBasic()
+            val sensitivityPct = Prefs.getTiltSensitivityPct(this@MainActivity)
+            val sensitivityRow = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val sensitivityValue = TextView(this@MainActivity).apply {
+                text = getString(R.string.sensitivity_value, sensitivityPct)
+                textSize = 13f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(accentText)
+                gravity = Gravity.CENTER
+                layoutParams = LinearLayout.LayoutParams(dp(52), LinearLayout.LayoutParams.WRAP_CONTENT)
+            }
+            sensitivityRow.addView(SeekBar(this@MainActivity).apply {
+                max = 100
+                progress = sensitivityPct
+                progressTintList = ColorStateList.valueOf(accent)
+                progressBackgroundTintList = ColorStateList.valueOf(line)
+                thumbTintList = ColorStateList.valueOf(accent)
+                setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                    override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                        sensitivityValue.text = getString(R.string.sensitivity_value, progress)
+                        if (fromUser) {
+                            Prefs.setTiltSensitivityPct(this@MainActivity, progress)
+                        }
+                    }
+
+                    override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+
+                    override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                        OverlayService.refreshIfRunning()
+                    }
+                })
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
             })
+            sensitivityRow.addView(sensitivityValue)
+            addView(sensitivityRow)
             addView(descLabel(getString(R.string.desc_motion_battery)))
             addView(Button(this@MainActivity).apply {
                 tag = "small"

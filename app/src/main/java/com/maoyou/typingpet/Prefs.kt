@@ -41,9 +41,21 @@ object Prefs {
     fun getTiltEnabled(context: Context): Boolean = sp(context).getBoolean("motionTilt", true)
     fun setTiltEnabled(context: Context, value: Boolean) = sp(context).edit().putBoolean("motionTilt", value).apply()
 
-    // 傾きの感度 0(低) / 1(中) / 2(高)
-    fun getTiltSensitivity(context: Context): Int = sp(context).getInt("tiltSensitivity", 1)
-    fun setTiltSensitivity(context: Context, level: Int) = sp(context).edit().putInt("tiltSensitivity", level).apply()
+    // 傾きの感度 0〜100%。旧 0/1/2 の設定は読み込み時に変換する
+    fun getTiltSensitivityPct(context: Context): Int {
+        val p = sp(context)
+        if (p.contains("tiltSensitivityPct")) {
+            return p.getInt("tiltSensitivityPct", 25).coerceIn(0, 100)
+        }
+        return when (if (p.contains("tiltSensitivity")) p.getInt("tiltSensitivity", 1) else 1) {
+            0 -> 10
+            2 -> 50
+            else -> 25
+        }
+    }
+
+    fun setTiltSensitivityPct(context: Context, value: Int) =
+        sp(context).edit().putInt("tiltSensitivityPct", value.coerceIn(0, 100)).apply()
 
     // 表示位置
     fun getPosX(context: Context): Int = sp(context).getInt("posX", 40)

@@ -112,6 +112,8 @@
     <string name="toast_overlay_not_running">Show the pet first (③)</string>
     <string name="diag_hint">Type a few characters in another app, then return here and check the count. If it stays 0, no text events are arriving.</string>
     <string name="btn_view_log">View diagnostic log</string>
+    <string name="btn_clear_log">Clear log</string>
+    <string name="toast_log_cleared">Log cleared</string>
     <string name="log_title">Diagnostic log</string>
     <string name="log_empty">No log yet</string>
     <string name="btn_copy">Copy</string>
@@ -122,9 +124,7 @@
     <string name="switch_tilt_desc">Tilt the phone and the pet slides gently toward gravity and leans its head.</string>
     <string name="label_tilt_sensitivity">Tilt sensitivity</string>
     <string name="desc_tilt_sensitivity">How strongly the pet follows the phone\'s tilt.</string>
-    <string name="sensitivity_low">Low</string>
-    <string name="sensitivity_medium">Medium</string>
-    <string name="sensitivity_high">High</string>
+    <string name="sensitivity_value">%1$d%%</string>
     <string name="desc_motion_battery">Sensors are used only while the pet is shown and the screen is on.</string>
     <string name="motion_unsupported">This device has no accelerometer.</string>
     <string name="btn_recenter_tilt">Use current angle</string>

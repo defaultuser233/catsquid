@@ -16,7 +16,7 @@ On first launch, a language picker appears (device language / 日本語 / Englis
 - **Always on top**: ON = the pet appears automatically when you open other apps; OFF = manual display only
 - **Position lock**: ON = taps pass through to the app below and dragging is disabled
 - **Reset position**
-- **Motion**: tilt the phone and the pet slides gently toward gravity and tilts its head. Tilt sensitivity (low / medium / high) is adjustable. Sensors run only while the pet is visible and the screen is on.
+- **Motion**: tilt the phone and the pet slides gently toward gravity and tilts its head. Tilt sensitivity is adjustable with a slider (0–100%). Sensors run only while the pet is visible and the screen is on.
 - **Character presets**: save a set of images + built-in color per named character and switch between them
 - **Multiple characters**: show any number of saved characters at once. Tap the "characters on screen" icons to show/hide; drag each character on screen.
 - **Built-in cat animations**: with no images registered, the pet uses GIF animations for idle, typing, and delete. For `!`, `?`, and space it uses the special animations (`exclamation.gif` / `question.gif` / `space.gif`); if one is missing, it falls back to idle.
@@ -68,8 +68,9 @@ The app's default icon is the CatSquid cat. Android does not allow changing the 
 - `PetView.kt`: draws the pet (registered images, built-in cat GIFs, squishy bounce)
 - `ImageLoader.kt`: downsamples registered images
 - `OverlayService.kt`: shows the pet overlay; applies settings live; starts/stops sensors with screen on/off
-- `MotionController.kt`: derives device tilt from the accelerometer
+- `MotionController.kt`: fuses accelerometer tilt with gyroscope angular velocity (complementary filter) for a faster, smoother lean
 - `PetAccessibilityService.kt`: detects typing in other apps; when character triggers or the built-in "⌫ delete" reaction are active, compares text around the cursor on the spot
+- `ImeWindowWatcher.kt`: for keyboards that send no accessibility events (Sogou, Baidu), samples the keyboard window's candidate text to notice key presses
 - `res/values/strings.xml`, `res/values-en/strings.xml`, `res/values-ko/strings.xml`, `res/values-zh/strings.xml`: Japanese / English / Korean / Simplified Chinese strings
 - `res/raw/*.gif`: built-in cat animations (idle / typing / delete / `!` `?` space specials; `question.gif` optional)
 - `res/mipmap-*/ic_launcher.png`, `ic_launcher_round.png`: legacy app icons

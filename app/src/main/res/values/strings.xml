@@ -112,6 +112,8 @@
     <string name="toast_overlay_not_running">先に③でペットを表示してください</string>
     <string name="diag_hint">他のアプリで数文字入力してから、この画面に戻ってカウントを確認してください。0のままなら入力イベントが届いていません。</string>
     <string name="btn_view_log">診断ログを見る</string>
+    <string name="btn_clear_log">ログを消去</string>
+    <string name="toast_log_cleared">ログを消去しました</string>
     <string name="log_title">診断ログ</string>
     <string name="log_empty">ログはまだありません</string>
     <string name="btn_copy">コピー</string>
@@ -122,9 +124,7 @@
     <string name="switch_tilt_desc">スマホを傾けると、ペットが重力の方向へ少し滑って首をかしげます。</string>
     <string name="label_tilt_sensitivity">傾きの感度</string>
     <string name="desc_tilt_sensitivity">傾けたときのペットの動きやすさです。</string>
-    <string name="sensitivity_low">低</string>
-    <string name="sensitivity_medium">中</string>
-    <string name="sensitivity_high">高</string>
+    <string name="sensitivity_value">%1$d%%</string>
     <string name="desc_motion_battery">センサーはペット表示中かつ画面オンのときだけ使います。</string>
     <string name="motion_unsupported">この端末には加速度センサーがありません。</string>
     <string name="btn_recenter_tilt">今の角度を基準にする</string>

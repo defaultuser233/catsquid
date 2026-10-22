@@ -28,4 +28,12 @@ object DiagLog {
     } catch (_: Throwable) {
         ""
     }
+
+    @Synchronized
+    fun clear(context: Context) {
+        try {
+            File(context.filesDir, FILE_NAME).delete()
+        } catch (_: Throwable) {
+        }
+    }
 }

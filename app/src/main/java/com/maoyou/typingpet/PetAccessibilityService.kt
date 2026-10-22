@@ -1,15 +1,31 @@
 package com.maoyou.typingpet
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.content.Intent
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.inputmethod.InputMethodManager
 
 class PetAccessibilityService : AccessibilityService() {
 
     private var loggedEvents = 0
     private var loggedNoOverlay = false
     private var reactionLogs = 0
+    private var imeLogs = 0
+
+    /** 有効な入力メソッド(キーボード)のパッケージ。拼音入力中はキーボード側の変化で反応する */
+    private var imePackages: Set<String> = emptySet()
+    private var imePackagesAt = 0L
+    private var lastTextEventAt = 0L
+    private var lastImeReactAt = 0L
+    private val seenImeEvents = HashSet<String>()
+
+    /** イベントを送ってくる入力法。直近にイベントがある間はウィンドウ走査を止める */
+    private var lastEventImePkg = ""
+    private var lastEventImeAt = 0L
+    private var imeWatcher: ImeWindowWatcher? = null
 
     companion object {
         @Volatile var connected = false
@@ -26,12 +42,34 @@ class PetAccessibilityService : AccessibilityService() {
             lastPackage = "-"
             lastEventType = 0
         }
+
+        @Volatile private var inst: PetAccessibilityService? = null
+
+        /** ログを消したときに、一度だけ記録する系のフラグも戻す */
+        fun clearDiagnostics() {
+            resetStats()
+            inst?.let { s ->
+                s.loggedEvents = 0
+                s.loggedNoOverlay = false
+                s.reactionLogs = 0
+                s.imeLogs = 0
+                s.seenImeEvents.clear()
+                s.imeWatcher?.resetLogging()
+            }
+        }
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         connected = true
+        inst = this
         DiagLog.log(this, "onServiceConnected")
+        DiagLog.log(this, "ime packages=${enabledImePackages().joinToString()}")
+        imeWatcher = ImeWindowWatcher(
+            this,
+            isActive = { OverlayService.instance != null },
+            onKeyActivity = { pkg -> handleImePollActivity(pkg) }
+        ).also { it.start() }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -47,12 +85,25 @@ class PetAccessibilityService : AccessibilityService() {
         eventCount++
         lastEventType = event.eventType
         lastPackage = event.packageName?.toString() ?: "-"
+
+        // キーボード自身の反応(描画変化・キー押下) = キー入力。拼音入力中は変換前の文字が
+        // 入力欄に届かないことがあるため、キーを押した時点で反応させる
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            AccessibilityEvent.TYPE_VIEW_CLICKED,
+            AccessibilityEvent.TYPE_VIEW_SELECTED,
+            AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> {
+                handleImeActivity(event)
+                return
+            }
+        }
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
+
+        lastTextEventAt = SystemClock.uptimeMillis()
         loggedEvents++
         if (loggedEvents <= 3 || loggedEvents % 50 == 0) {
             DiagLog.log(this, "event #$loggedEvents type=${event.eventType} pkg=$lastPackage")
         }
-
-        if (event.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
         if (OverlayService.instance == null) {
             if (!loggedNoOverlay) {
                 loggedNoOverlay = true
@@ -104,6 +155,78 @@ class PetAccessibilityService : AccessibilityService() {
         OverlayService.reactText(after.substring(winStart, change.end), change.start - winStart, inserted)
     }
 
+    /**
+     * キーボードウィンドウの変化をキー入力として扱う。
+     * 日本語・中国語の変換中は確定するまで入力欄の文字が変わらないため、
+     * キーを押した時点で内蔵の入力アニメだけを進める(登録文字の照合は確定イベントに任せる)。
+     */
+    private fun handleImeActivity(event: AccessibilityEvent) {
+        val pkg = event.packageName?.toString() ?: return
+        val known = pkg in enabledImePackages()
+        // 入力法が一覧に無い/別プロセスの場合もあるので、名前がそれらしいものも記録だけする
+        if (!known && !looksLikeKeyboard(pkg)) return
+
+        // どの種類のイベントが届くかは入力法によって違う。調査用に初出だけ記録する
+        val key = "$pkg/${event.eventType}"
+        if (seenImeEvents.size < 20 && seenImeEvents.add(key)) {
+            DiagLog.log(this, "ime event pkg=$pkg type=${event.eventType} known=$known")
+        }
+        if (!known) return
+
+        val now = SystemClock.uptimeMillis()
+        lastEventImePkg = pkg
+        lastEventImeAt = now
+
+        if (OverlayService.instance == null) return
+
+        // 文字が直接届く環境(英語入力など)では二重に反応しない
+        if (now - lastTextEventAt < 150L) return
+        if (now - lastImeReactAt < 120L) return
+        lastImeReactAt = now
+
+        if (imeLogs < 5) {
+            imeLogs++
+            DiagLog.log(this, "ime key activity pkg=$pkg")
+        }
+        OverlayService.reactIfRunning()
+    }
+
+    private fun looksLikeKeyboard(pkg: String): Boolean {
+        val p = pkg.lowercase()
+        return p.contains("sogou") || p.contains("baidu") || p.contains("inputmethod") ||
+            p.contains("keyboard") || p.contains("ime")
+    }
+
+    /**
+     * キーボードウィンドウの走査で見つけたキー入力。
+     * イベントを送ってくる入力法(vivo など)では二重になるので、
+     * 直近5秒にイベントが来ているパッケージでは走査側を無視する。
+     */
+    private fun handleImePollActivity(pkg: String) {
+        if (pkg !in enabledImePackages()) return
+        if (OverlayService.instance == null) return
+        val now = SystemClock.uptimeMillis()
+        if (pkg == lastEventImePkg && now - lastEventImeAt < 5000L) return
+        if (now - lastTextEventAt < 150L) return
+        if (now - lastImeReactAt < 120L) return
+        lastImeReactAt = now
+        if (imeLogs < 5) {
+            imeLogs++
+            DiagLog.log(this, "ime poll key pkg=$pkg")
+        }
+        OverlayService.reactIfRunning()
+    }
+
+    /** 有効なキーボード(入力メソッド)のパッケージ一覧。30秒キャッシュ */
+    private fun enabledImePackages(): Set<String> {
+        val now = SystemClock.uptimeMillis()
+        if (imePackages.isNotEmpty() && now - imePackagesAt < 30_000L) return imePackages
+        imePackagesAt = now
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imePackages = imm?.enabledInputMethodList?.map { it.packageName }?.toSet() ?: emptySet()
+        return imePackages
+    }
+
     /** 今回の変更: 入力された範囲 [start, end) と、消えた文字数 */
     private class Change(val start: Int, val end: Int, val removed: Int)
 
@@ -146,12 +269,18 @@ class PetAccessibilityService : AccessibilityService() {
     override fun onUnbind(intent: Intent?): Boolean {
         DiagLog.log(this, "onUnbind: $intent")
         connected = false
+        imeWatcher?.stop()
+        imeWatcher = null
+        if (inst === this) inst = null
         return super.onUnbind(intent)
     }
 
     override fun onDestroy() {
         DiagLog.log(this, "onDestroy")
         connected = false
+        imeWatcher?.stop()
+        imeWatcher = null
+        if (inst === this) inst = null
         super.onDestroy()
     }
 }

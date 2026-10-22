@@ -15,6 +15,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.view.View
 import android.view.animation.OvershootInterpolator
+import kotlin.math.abs
 
 /**
  * タイピングに反応するペット。
@@ -29,6 +30,9 @@ class PetView(context: Context) : View(context) {
     companion object {
         private const val IDLE_REVERT_DELAY_MS = 700L
         private const val BOUNCE_DURATION_MS = 420L
+
+        /** 傾き感度 0〜100% をゲイン 0.6〜5.0 に変換する */
+        fun tiltGain(pct: Int): Float = 0.6f + (pct.coerceIn(0, 100) / 100f) * 4.4f
     }
 
     var preset = 0
@@ -41,8 +45,8 @@ class PetView(context: Context) : View(context) {
     var showShadow = true
         set(value) { field = value; invalidate() }
 
-    /** 傾きの感度 0(低) / 1(中) / 2(高) */
-    var tiltSensitivity = 1
+    /** 傾きの感度 0〜100% */
+    var tiltSensitivityPct = 25
 
     /** 設定画面のプレビューでは false にして、GIFの1枚目だけを静止表示する */
     var animateBuiltIn = true
@@ -62,9 +66,10 @@ class PetView(context: Context) : View(context) {
     private var reactLogs = 0
     private var activeState = false
     private var lastReactAt = 0L
-    private var tiltX = 0f
-    private var tiltY = 0f
-    private var tiltAngle = 0f
+    private val tiltX = TiltSpring()
+    private val tiltY = TiltSpring()
+    private val tiltAngle = TiltSpring()
+    private var lastTiltFrameAt = 0L
 
     /** 画像が1枚も登録されていなければ、内蔵のネコアニメで動く */
     val usesBuiltInArt: Boolean get() = !hasCustomImages
@@ -139,20 +144,51 @@ class PetView(context: Context) : View(context) {
 
     /** 端末の傾き(-1〜1)に合わせて、窓の中で少し滑らせて首をかしげる */
     fun setTilt(nx: Float, ny: Float) {
-        // 感度に応じてゲインを変え、強い傾きで端に届くようにする
-        val gain = when (tiltSensitivity) {
-            0 -> 1.0f
-            2 -> 2.4f
-            else -> 1.6f
-        }
+        // 感度 0〜100% をゲイン 0.6〜5.0 に変換する
+        val gain = tiltGain(tiltSensitivityPct)
         val vx = (nx * gain).coerceIn(-1f, 1f)
         val vy = (ny * gain).coerceIn(-1f, 1f)
-        val maxShift = if (hasCustomImages) 0.05f else 0.10f
-        val maxAngle = if (hasCustomImages) 5f else 10f
-        tiltX = vx * width * maxShift
-        tiltY = vy * height * maxShift
-        tiltAngle = vx * maxAngle
+        val maxShift = if (hasCustomImages) 0.04f else 0.07f
+        val maxAngle = if (hasCustomImages) 7f else 14f
+        tiltX.target = vx * width * maxShift
+        tiltY.target = vy * height * maxShift
+        tiltAngle.target = vx * maxAngle
         invalidate()
+    }
+
+    /** 傾きはバネで追従させ、センサーの更新間隔を描画フレームで埋める */
+    private fun stepTilt(): Boolean {
+        val now = SystemClock.uptimeMillis()
+        val dt = if (lastTiltFrameAt == 0L) 0.016f
+        else ((now - lastTiltFrameAt) / 1000f).coerceIn(0.001f, 0.033f)
+        lastTiltFrameAt = now
+        val movingX = tiltX.step(dt)
+        val movingY = tiltY.step(dt)
+        val movingAngle = tiltAngle.step(dt)
+        val moving = movingX || movingY || movingAngle
+        if (!moving) lastTiltFrameAt = 0L
+        return moving
+    }
+
+    private class TiltSpring {
+        var target = 0f
+        var value = 0f
+        private var velocity = 0f
+
+        /** 減衰付きバネを1フレーム進める。まだ動いていれば true */
+        fun step(dt: Float): Boolean {
+            val stiffness = 256f   // 固有角周波数 16rad/s
+            val damping = 25.6f    // 減衰比 0.8(わずかに行き過ぎる程度)
+            val accel = (target - value) * stiffness - velocity * damping
+            velocity += accel * dt
+            value += velocity * dt
+            if (abs(target - value) < 0.08f && abs(velocity) < 0.8f) {
+                value = target
+                velocity = 0f
+                return false
+            }
+            return true
+        }
     }
 
     private fun goIdle() {
@@ -309,11 +345,12 @@ class PetView(context: Context) : View(context) {
         val cx = width / 2f
         val cy = height / 2f
 
+        val tilting = stepTilt()
         drawShadow(canvas, cx, cy)
 
         canvas.save()
-        canvas.translate(tiltX, tiltY)
-        canvas.rotate(tiltAngle, cx, cy)
+        canvas.translate(tiltX.value, tiltY.value)
+        canvas.rotate(tiltAngle.value, cx, cy)
         canvas.scale(scaleXAnim, scaleYAnim, cx, cy + height * 0.16f)
 
         val bmp = shown
@@ -324,14 +361,14 @@ class PetView(context: Context) : View(context) {
 
         canvas.restore()
 
-        if (movie != null && animateBuiltIn) postInvalidateOnAnimation()
+        if (tilting || (movie != null && animateBuiltIn)) postInvalidateOnAnimation()
     }
 
     /** 影だけは傾きの回転をかけず、ペットの移動と弾みにだけ合わせる */
     private fun drawShadow(canvas: Canvas, cx: Float, cy: Float) {
         if (!showShadow) return
         canvas.save()
-        canvas.translate(tiltX, tiltY)
+        canvas.translate(tiltX.value, tiltY.value)
         canvas.scale(scaleXAnim, scaleYAnim, cx, cy + height * 0.16f)
 
         val bmp = shown
