@@ -41,9 +41,9 @@ object Prefs {
     fun getTiltEnabled(context: Context): Boolean = sp(context).getBoolean("motionTilt", true)
     fun setTiltEnabled(context: Context, value: Boolean) = sp(context).edit().putBoolean("motionTilt", value).apply()
 
-    // 傾き端の振動 0(なし)〜3(強)
-    fun getHapticLevel(context: Context): Int = sp(context).getInt("hapticLevel", 2)
-    fun setHapticLevel(context: Context, level: Int) = sp(context).edit().putInt("hapticLevel", level).apply()
+    // 傾きの感度 0(低) / 1(中) / 2(高)
+    fun getTiltSensitivity(context: Context): Int = sp(context).getInt("tiltSensitivity", 1)
+    fun setTiltSensitivity(context: Context, level: Int) = sp(context).edit().putInt("tiltSensitivity", level).apply()
 
     // 表示位置
     fun getPosX(context: Context): Int = sp(context).getInt("posX", 40)

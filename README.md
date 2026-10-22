@@ -8,9 +8,9 @@ A floating cat pet overlay for Android that reacts to typing, tilt, and touch.
 
 - Floats above other apps with the "display over other apps" permission.
 - Reacts to typing through an accessibility service; no custom keyboard required.
-- Built-in cat GIF animations (4 idle / 3 typing / 1 delete) plus custom images.
+- Built-in cat GIF animations for idle, typing, delete, and special keys (`!`, `?`, space); missing specials fall back to idle.
 - Character presets, multiple pets on screen, four built-in colors.
-- Tilt the phone and the pet follows gravity; a strong tilt triggers a short haptic bump.
+- Tilt the phone and the pet follows gravity; tilt sensitivity is adjustable.
 - Japanese / English / Korean / Simplified Chinese UI.
 - Adaptive launcher icon for Android 8+.
 
@@ -24,6 +24,7 @@ A floating cat pet overlay for Android that reacts to typing, tilt, and touch.
 
 - Before every APK build, run `python3 scripts/bump_version.py`.
 - `version.properties` is the single source of truth; `app/build.gradle` and manual builds read it.
+- Short distribution path: run `sh scripts/package_apk.sh` → `dist/catsquid-<version>.apk`.
 - Details: [AGENTS.md](AGENTS.md).
 
 ## Documentation

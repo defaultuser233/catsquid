@@ -3,3 +3,4 @@
 app/build/
 .gradle/
 local.properties
+dist/

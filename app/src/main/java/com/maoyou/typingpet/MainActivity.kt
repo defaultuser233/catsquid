@@ -664,32 +664,20 @@ class MainActivity : Activity() {
                 OverlayService.refreshIfRunning()
             })
             addView(divider())
-            addView(smallLabel(getString(R.string.label_haptic)))
-            addView(descLabel(getString(R.string.desc_haptic)))
+            addView(smallLabel(getString(R.string.label_tilt_sensitivity)))
+            addView(descLabel(getString(R.string.desc_tilt_sensitivity)))
             addView(spacer(8))
             addView(segRow(
                 listOf(
-                    getString(R.string.haptic_off) to "0",
-                    getString(R.string.haptic_weak) to "1",
-                    getString(R.string.haptic_medium) to "2",
-                    getString(R.string.haptic_strong) to "3"
+                    getString(R.string.sensitivity_low) to "0",
+                    getString(R.string.sensitivity_medium) to "1",
+                    getString(R.string.sensitivity_high) to "2"
                 ),
-                Prefs.getHapticLevel(this@MainActivity).toString()
+                Prefs.getTiltSensitivity(this@MainActivity).toString()
             ) { key ->
-                Prefs.setHapticLevel(this@MainActivity, key.toInt())
+                Prefs.setTiltSensitivity(this@MainActivity, key.toInt())
                 OverlayService.refreshIfRunning()
                 renderBasic()
-            })
-            addView(Button(this@MainActivity).apply {
-                tag = "small"
-                text = getString(R.string.btn_test_haptic)
-                setOnClickListener {
-                    Haptics.bump(this@MainActivity, Prefs.getHapticLevel(this@MainActivity))
-                }
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = dp(8) }
             })
             addView(descLabel(getString(R.string.desc_motion_battery)))
             addView(Button(this@MainActivity).apply {

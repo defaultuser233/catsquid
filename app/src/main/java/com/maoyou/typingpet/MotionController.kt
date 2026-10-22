@@ -7,14 +7,12 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import kotlin.math.hypot
 
 /** 加速度センサーから端末の傾きを求め、ペットを重力方向へ動かす */
 class MotionController(
     private val context: Context,
-    private val onTilt: (Float, Float) -> Unit,
-    private val onEdge: () -> Unit
+    private val onTilt: (Float, Float) -> Unit
 ) : SensorEventListener {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
@@ -26,9 +24,6 @@ class MotionController(
     private var started = false
     private var hasGravity = false
     private var hasBaseline = false
-    private var edgeLatched = false
-    private var lastEdgeAt = 0L
-    private var edgeLogs = 0
     private var tiltLogs = 0
 
     fun start() {
@@ -36,7 +31,6 @@ class MotionController(
         started = true
         hasGravity = false
         hasBaseline = false
-        edgeLatched = false
         tiltLogs = 0
         sensorManager?.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME, handler)
         DiagLog.log(context, "motion start")
@@ -83,21 +77,6 @@ class MotionController(
         if (tiltLogs < 5 && magnitude > 0.15f) {
             tiltLogs++
             DiagLog.log(context, "tilt nx=$nx ny=$ny mag=$magnitude")
-        }
-
-        val now = SystemClock.uptimeMillis()
-        if (!edgeLatched && magnitude > 0.60f) {
-            edgeLatched = true
-            if (now - lastEdgeAt > 700L) {
-                lastEdgeAt = now
-                onEdge()
-                if (edgeLogs < 5) {
-                    edgeLogs++
-                    DiagLog.log(context, "tilt edge nx=$nx ny=$ny mag=$magnitude")
-                }
-            }
-        } else if (edgeLatched && magnitude < 0.40f) {
-            edgeLatched = false
         }
     }
 

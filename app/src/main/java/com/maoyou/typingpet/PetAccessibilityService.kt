@@ -86,6 +86,8 @@ class PetAccessibilityService : AccessibilityService() {
             return
         }
 
+        val inserted = after.substring(change.start, change.end)
+
         // 新しい文字は何も入らず、文字が消えただけ → 「消したとき」
         if (change.end == change.start) {
             if (change.removed > 0 && watchDelete) OverlayService.reactDelete() else OverlayService.reactIfRunning()
@@ -93,13 +95,13 @@ class PetAccessibilityService : AccessibilityService() {
         }
 
         if (maxLen <= 0) {
-            OverlayService.reactIfRunning()
+            OverlayService.reactInserted(inserted)
             return
         }
 
         // 入力位置の直前数文字(登録文字の最大長ぶん)だけを切り出して各キャラに渡す(保存・送信はしない)
         val winStart = maxOf(0, change.start - (maxLen - 1))
-        OverlayService.reactText(after.substring(winStart, change.end), change.start - winStart)
+        OverlayService.reactText(after.substring(winStart, change.end), change.start - winStart, inserted)
     }
 
     /** 今回の変更: 入力された範囲 [start, end) と、消えた文字数 */

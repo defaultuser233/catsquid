@@ -16,10 +16,10 @@ X 등 다른 앱 위에 살짝 떠오르는 고양이 펫 오버레이 앱입니
 - **항상 맨 위에 고정**: ON이면 다른 앱을 열 때 자동 표시, OFF면 수동 표시만
 - **위치 잠금**: ON이면 터치가 아래 앱으로 통과되고 드래그 이동도 불가
 - **위치 초기화**
-- **센서 연동**: 스마트폰을 기울이면 펫이 중력 방향으로 살짝 미끄러지고 고개를 갸웃합니다. 크게 기울이면 설정한 강도로 짧게 진동합니다. 센서는 펫이 표시 중이고 화면이 켜져 있을 때만 동작합니다.
+- **센서 연동**: 스마트폰을 기울이면 펫이 중력 방향으로 살짝 미끄러지고 고개를 갸웃합니다. 기울기 감도(낮음/보통/높음)를 설정할 수 있습니다. 센서는 펫이 표시 중이고 화면이 켜져 있을 때만 동작합니다.
 - **캐릭터 저장**: 이미지 세트 + 내장 색상을 캐릭터별로 이름을 붙여 저장하고 전환 가능
 - **여러 캐릭터 표시**: 저장한 캐릭터를 여러 개 동시에 화면에 표시. 위의 "표시할 캐릭터" 아이콘을 탭해 표시/숨기기, 화면에서는 캐릭터별로 드래그 이동
-- **내장 고양이 애니메이션**: 이미지를 하나도 등록하지 않았을 때 대기 4종·입력 3종·삭제 1종 GIF 애니메이션으로 동작
+- **내장 고양이 애니메이션**: 이미지를 하나도 등록하지 않았을 때 대기·입력·삭제 GIF 애니메이션으로 동작합니다. `!`, `?`, 공백에는 전용 애니메이션(`exclamation.gif` / `question.gif` / `space.gif`)을 사용하고, 없으면 대기로 돌아갑니다.
 - **내장 색상 4색** 선택(내장 고양이 애니메이션에 색을 입힘)
 - **이미지는 3종류로 등록(개수 제한 없음)**
   - **대기**: 입력하지 않을 때 표시. 여러 장 등록하면 대기로 돌아올 때마다 무작위로 1장
@@ -41,6 +41,7 @@ X 등 다른 앱 위에 살짝 떠오르는 고양이 펫 오버레이 앱입니
 ## 릴리스 빌드
 
 - 로컬에서 빌드한 release APK는 `app/build/outputs/apk/release/app-release.apk`입니다.
+- 배포용 짧은 경로로 복사하려면 `sh scripts/package_apk.sh`를 실행하세요(`dist/catsquid-<version>.apk`).
 - 서명에는 `app/typingpet-release.jks`(alias: `typingpet`)를 사용합니다. 키는 저장소에 커밋하지 마세요.
 
 ## GitHub에서 빌드(Android Studio 불필요)
@@ -68,10 +69,9 @@ X 등 다른 앱 위에 살짝 떠오르는 고양이 펫 오버레이 앱입니
 - `ImageLoader.kt`: 등록 이미지를 필요한 크기로 축소해 로드
 - `OverlayService.kt`: 펫을 화면에 띄움. 설정 변경 실시간 반영. 화면 켜짐/꺼짐에 맞춰 센서 시작/정지
 - `MotionController.kt`: 가속도 센서로 기기 기울기 계산
-- `Haptics.kt`: 기울기 끝 등 짧은 진동 피드백
 - `PetAccessibilityService.kt`: 다른 앱 입력 감지. "문자로 전환" 또는 내장 "⌫ 지울 때"가 켜져 있으면 입력 앞뒤를 그 자리에서 비교
 - `res/values/strings.xml`, `res/values-en/strings.xml`, `res/values-ko/strings.xml`, `res/values-zh/strings.xml`: 일본어·영어·한국어·중국어 간체 문구
-- `res/raw/*.gif`: 내장 고양이 애니메이션(대기 4 / 입력 3 / 삭제 1)
+- `res/raw/*.gif`: 내장 고양이 애니메이션(대기 / 입력 / 삭제 / `!` `?` 공백 전용. `question.gif`는 없어도 됨)
 - `res/mipmap-*/ic_launcher.png`, `ic_launcher_round.png`: 기존형 앱 아이콘
 - `res/mipmap-anydpi-v26/ic_launcher*.xml`, `res/drawable-xxxhdpi/ic_launcher_foreground.png`: Android 8+ 적응형 아이콘
 - `version.properties`, `scripts/bump_version.py`: 버전 관리와 빌드 전 자동 증가

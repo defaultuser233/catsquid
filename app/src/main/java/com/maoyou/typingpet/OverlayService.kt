@@ -89,9 +89,14 @@ class OverlayService : Service() {
             instance?.reactAll(null, 0)
         }
 
+        /** 登録文字がない場合でも、入力された文字を渡して内蔵の専用アニメを出せるようにする */
+        fun reactInserted(inserted: String) {
+            instance?.reactAll(null, 0, inserted)
+        }
+
         /** 入力直後の数文字を渡して、各キャラが自分の登録文字で反応する */
-        fun reactText(window: String, newFrom: Int) {
-            instance?.reactAll(window, newFrom)
+        fun reactText(window: String, newFrom: Int, inserted: String? = null) {
+            instance?.reactAll(window, newFrom, inserted)
         }
 
         /** 設定画面での変更を、動作中のオーバーレイに即反映する */
@@ -113,8 +118,7 @@ class OverlayService : Service() {
         screenOn = (getSystemService(POWER_SERVICE) as? PowerManager)?.isInteractive ?: true
         motion = MotionController(
             this,
-            onTilt = { nx, ny -> pets.values.forEach { it.view.setTilt(nx, ny) } },
-            onEdge = { Haptics.bump(this, Prefs.getHapticLevel(this)) }
+            onTilt = { nx, ny -> pets.values.forEach { it.view.setTilt(nx, ny) } }
         )
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_ON)
@@ -143,7 +147,7 @@ class OverlayService : Service() {
 
     private var reactLogs = 0
 
-    private fun reactAll(window: String?, newFrom: Int) {
+    private fun reactAll(window: String?, newFrom: Int, inserted: String? = null) {
         handler.post {
             if (reactLogs < 10) {
                 reactLogs++
@@ -151,7 +155,7 @@ class OverlayService : Service() {
             }
             pets.values.forEach { p ->
                 val idx = if (window == null) -1 else TriggerMatcher.find(window, newFrom, p.keys)
-                p.view.react(idx)
+                p.view.react(idx, inserted)
             }
         }
     }
@@ -206,6 +210,7 @@ class OverlayService : Service() {
             pet.view.preset = c.preset
             pet.view.shakeLevel = Prefs.getShakeLevel(this)
             pet.view.showShadow = Prefs.getShowShadow(this)
+            pet.view.tiltSensitivity = Prefs.getTiltSensitivity(this)
             pet.view.setImages(
                 idle = c.idle.mapNotNull { get(it) },
                 steps = c.steps.map { s -> s.mapNotNull { get(it) } },

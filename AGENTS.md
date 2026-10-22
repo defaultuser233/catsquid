@@ -12,9 +12,11 @@
 ## リリース
 
 - 署名: `app/typingpet-release.jks`（alias: `typingpet`）。リポジトリにはコミットしない。
-- 出力: `app/build/outputs/apk/release/app-release.apk`
+- 出力: `app/build/outputs/apk/release/app-release.apk`（Gradle 標準のパス）
+- 配布用の短いパス: `sh scripts/package_apk.sh` で `dist/catsquid-<version>.apk` にコピーする。
 - パッケージ名: `com.maoyou.typingpet`
 
 ## アニメーション素材
 
 - `res/raw/idle_*` と `typing_*` の割り当てはユーザーが意図的に設定したもの。元 GIF のファイル名や内容から推測して並べ替えない。
+- 特殊アニメは `delete.gif` / `exclamation.gif` / `space.gif`。`question.gif` は任意で、無い場合は待機にフォールバックする。リソースは名前で動的に探すため、ファイルを追加・削除してもビルドできる。

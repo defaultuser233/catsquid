@@ -41,6 +41,9 @@ class PetView(context: Context) : View(context) {
     var showShadow = true
         set(value) { field = value; invalidate() }
 
+    /** 傾きの感度 0(低) / 1(中) / 2(高) */
+    var tiltSensitivity = 1
+
     /** 設定画面のプレビューでは false にして、GIFの1枚目だけを静止表示する */
     var animateBuiltIn = true
 
@@ -67,12 +70,22 @@ class PetView(context: Context) : View(context) {
     val usesBuiltInArt: Boolean get() = !hasCustomImages
 
     private val idleMovies: List<Movie> = listOf(
-        R.raw.idle_1, R.raw.idle_2, R.raw.idle_3, R.raw.idle_4
-    ).mapNotNull { loadMovie(it) }
+        "idle_1", "idle_2", "idle_3", "idle_4"
+    ).mapNotNull { loadRawMovie(it) }
     private val typingMovies: List<Movie> = listOf(
-        R.raw.typing_1, R.raw.typing_2, R.raw.typing_3
-    ).mapNotNull { loadMovie(it) }
-    private val deleteMovie: Movie? = loadMovie(R.raw.delete)
+        "typing_1", "typing_2", "typing_3"
+    ).mapNotNull { loadRawMovie(it) }
+    private val specialMovies: Map<String, Movie?> = mapOf(
+        "delete" to loadRawMovie("delete"),
+        "exclamation" to loadRawMovie("exclamation"),
+        "question" to loadRawMovie("question"),
+        "space" to loadRawMovie("space")
+    )
+
+    private fun loadRawMovie(name: String): Movie? {
+        val id = resources.getIdentifier(name, "raw", context.packageName)
+        return if (id != 0) loadMovie(id) else null
+    }
 
     @Suppress("DEPRECATION")
     private fun loadMovie(resId: Int): Movie? = try {
@@ -126,9 +139,14 @@ class PetView(context: Context) : View(context) {
 
     /** 端末の傾き(-1〜1)に合わせて、窓の中で少し滑らせて首をかしげる */
     fun setTilt(nx: Float, ny: Float) {
-        // 小さめの傾きでも動きが分かるようにゲインをかけ、強い傾きで端に届くようにする
-        val vx = (nx * 1.6f).coerceIn(-1f, 1f)
-        val vy = (ny * 1.6f).coerceIn(-1f, 1f)
+        // 感度に応じてゲインを変え、強い傾きで端に届くようにする
+        val gain = when (tiltSensitivity) {
+            0 -> 1.0f
+            2 -> 2.4f
+            else -> 1.6f
+        }
+        val vx = (nx * gain).coerceIn(-1f, 1f)
+        val vy = (ny * gain).coerceIn(-1f, 1f)
         val maxShift = if (hasCustomImages) 0.05f else 0.10f
         val maxAngle = if (hasCustomImages) 5f else 10f
         tiltX = vx * width * maxShift
@@ -157,7 +175,7 @@ class PetView(context: Context) : View(context) {
     /**
      * 打鍵イベントごとに呼ぶ。trigger に「文字で切り替え」の番号を渡すと、その画像からランダムで表示する。
      */
-    fun react(trigger: Int = -1) {
+    fun react(trigger: Int = -1, inserted: String? = null) {
         revertHandler.removeCallbacks(revertRunnable)
         activeState = true
         lastReactAt = SystemClock.uptimeMillis()
@@ -169,19 +187,31 @@ class PetView(context: Context) : View(context) {
         val triggerBmp = if (trigger >= 0) triggerFrames.getOrNull(trigger)?.randomOrNull() else null
         val stepBmp = steps.getOrNull(stepIndex)?.randomOrNull()
         val bmp = triggerBmp ?: stepBmp
+        val special = specialKeyName(inserted)
 
         if (bmp != null) {
             shown = bmp
             shownMovie = null
+        } else if (special != null) {
+            val movie = specialMovies[special]
+            if (movie != null) {
+                shown = null
+                shownMovie = movie
+                movieStart = SystemClock.uptimeMillis()
+                movie.setTime(0)
+            } else {
+                showIdleFallback()
+            }
         } else {
             shown = null
-            showMovie(typingMovies.getOrNull(builtInStep))
+            val typing = typingMovies.getOrNull(builtInStep)
+            if (typing != null) showMovie(typing) else showIdleFallback()
         }
         if (reactLogs < 10) {
             reactLogs++
             DiagLog.log(
                 context,
-                "PetView.react trigger=$trigger step=$builtInStep typing=${typingMovies.size} idle=${idleMovies.size} bmp=${bmp != null} movie=${shownMovie != null}"
+                "PetView.react trigger=$trigger step=$builtInStep typing=${typingMovies.size} idle=${idleMovies.size} bmp=${bmp != null} movie=${shownMovie != null} special=$special"
             )
         }
         invalidate()
@@ -191,11 +221,31 @@ class PetView(context: Context) : View(context) {
         if (shakeLevel > 0) playBounce()
     }
 
+    /** ! / ? / 空白に対応する内蔵アニメの名前。なければ null */
+    private fun specialKeyName(inserted: String?): String? {
+        val ch = inserted?.lastOrNull() ?: return null
+        return when (ch) {
+            '!', '！' -> "exclamation"
+            '?', '？' -> "question"
+            ' ', '　' -> "space"
+            else -> null
+        }
+    }
+
+    private fun showIdleFallback() {
+        shown = null
+        showMovie(idleMovies.randomOrNull())
+    }
+
     /** 「⌫ 消したとき」の内蔵アニメ。画像を登録していない時だけ使う */
     fun reactDelete() {
-        val movie = deleteMovie
-        if (!usesBuiltInArt || movie == null) {
+        val movie = specialMovies["delete"]
+        if (!usesBuiltInArt) {
             react()
+            return
+        }
+        if (movie == null) {
+            showIdleFallback()
             return
         }
         revertHandler.removeCallbacks(revertRunnable)

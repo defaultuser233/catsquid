@@ -16,10 +16,10 @@ On first launch, a language picker appears (device language / 日本語 / Englis
 - **Always on top**: ON = the pet appears automatically when you open other apps; OFF = manual display only
 - **Position lock**: ON = taps pass through to the app below and dragging is disabled
 - **Reset position**
-- **Motion**: tilt the phone and the pet slides gently toward gravity and tilts its head. A strong tilt triggers a short vibration at the configured strength. Sensors run only while the pet is visible and the screen is on.
+- **Motion**: tilt the phone and the pet slides gently toward gravity and tilts its head. Tilt sensitivity (low / medium / high) is adjustable. Sensors run only while the pet is visible and the screen is on.
 - **Character presets**: save a set of images + built-in color per named character and switch between them
 - **Multiple characters**: show any number of saved characters at once. Tap the "characters on screen" icons to show/hide; drag each character on screen.
-- **Built-in cat animations**: with no images registered, the pet uses GIF animations: 4 idle, 3 typing, 1 delete.
+- **Built-in cat animations**: with no images registered, the pet uses GIF animations for idle, typing, and delete. For `!`, `?`, and space it uses the special animations (`exclamation.gif` / `question.gif` / `space.gif`); if one is missing, it falls back to idle.
 - **4 built-in colors** (tints the built-in cat animation)
 - **Images are registered in 3 categories (unlimited count)**
   - **Idle**: shown when not typing. If multiple, one is picked at random each time it returns to idle.
@@ -41,6 +41,7 @@ The app's default icon is the CatSquid cat. Android does not allow changing the 
 ## Release build
 
 - The locally built release APK is at `app/build/outputs/apk/release/app-release.apk`.
+- For a shorter distribution path, run `sh scripts/package_apk.sh` (creates `dist/catsquid-<version>.apk`).
 - It is signed with `app/typingpet-release.jks` (alias: `typingpet`). Do not commit the keystore.
 
 ## Build on GitHub (no Android Studio)
@@ -68,10 +69,9 @@ The app's default icon is the CatSquid cat. Android does not allow changing the 
 - `ImageLoader.kt`: downsamples registered images
 - `OverlayService.kt`: shows the pet overlay; applies settings live; starts/stops sensors with screen on/off
 - `MotionController.kt`: derives device tilt from the accelerometer
-- `Haptics.kt`: short haptic feedback for tilt edges
 - `PetAccessibilityService.kt`: detects typing in other apps; when character triggers or the built-in "⌫ delete" reaction are active, compares text around the cursor on the spot
 - `res/values/strings.xml`, `res/values-en/strings.xml`, `res/values-ko/strings.xml`, `res/values-zh/strings.xml`: Japanese / English / Korean / Simplified Chinese strings
-- `res/raw/*.gif`: built-in cat animations (4 idle / 3 typing / 1 delete)
+- `res/raw/*.gif`: built-in cat animations (idle / typing / delete / `!` `?` space specials; `question.gif` optional)
 - `res/mipmap-*/ic_launcher.png`, `ic_launcher_round.png`: legacy app icons
 - `res/mipmap-anydpi-v26/ic_launcher*.xml`, `res/drawable-xxxhdpi/ic_launcher_foreground.png`: Android 8+ adaptive icons
 - `version.properties`, `scripts/bump_version.py`: version source and pre-build increment

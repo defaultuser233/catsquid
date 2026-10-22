@@ -16,10 +16,10 @@
 - **始终置顶**：开启后打开其他应用时自动显示；关闭时只手动显示
 - **位置锁定**：开启后点击穿透到下层应用，也不能拖动
 - **重置位置**
-- **传感器互动**：倾斜手机时，宠物会朝重力方向轻轻滑动并歪头。倾斜幅度较大时按设定强度短震。只有在宠物显示且屏幕亮起时才读取传感器。
+- **传感器互动**：倾斜手机时，宠物会朝重力方向轻轻滑动并歪头。可以设置倾斜灵敏度（低/中/高）。只有在宠物显示且屏幕亮起时才读取传感器。
 - **角色保存**：按角色保存一整套图片 + 内置颜色，可命名和切换
 - **多角色显示**：可以同时显示任意多个已保存角色。点击上方的“显示的角色”图标切换显示/隐藏，屏幕上可分别拖动
-- **内置猫咪动画**：没有注册任何图片时，使用待机 4 种、输入 3 种、删除 1 种的 GIF 动画
+- **内置猫咪动画**：没有注册任何图片时，使用待机、输入、删除的 GIF 动画。输入 `!`、`?`、空格时会使用专用动画（`exclamation.gif` / `question.gif` / `space.gif`）；找不到对应动画时回到待机。
 - **内置 4 种颜色**（给内置猫咪动画着色）
 - **图片分 3 类注册（数量不限）**
   - **待机**：未输入时显示。注册多张后，每次回到待机都会随机选一张
@@ -41,6 +41,7 @@
 ## Release 构建
 
 - 本地构建的 release APK 位于 `app/build/outputs/apk/release/app-release.apk`。
+- 想复制到更短的路径，运行 `sh scripts/package_apk.sh`（生成 `dist/catsquid-<version>.apk`）。
 - 使用 `app/typingpet-release.jks`（alias：`typingpet`）签名。不要把密钥提交到仓库。
 
 ## 在 GitHub 上构建（不需要 Android Studio）
@@ -68,10 +69,9 @@
 - `ImageLoader.kt`：把注册图片缩小到所需尺寸后加载
 - `OverlayService.kt`：把宠物悬浮在屏幕上；实时应用设置；根据屏幕亮灭启停传感器
 - `MotionController.kt`：从加速度传感器计算设备倾斜
-- `Haptics.kt`：倾斜边缘等短震反馈
 - `PetAccessibilityService.kt`：检测其他应用的输入；启用“按文字切换”或内置“⌫ 删除时”时，在本机比对光标前后的内容
 - `res/values/strings.xml`、`res/values-en/strings.xml`、`res/values-ko/strings.xml`、`res/values-zh/strings.xml`：日/英/韩/简中文本
-- `res/raw/*.gif`：内置猫咪动画（待机 4 / 输入 3 / 删除 1）
+- `res/raw/*.gif`：内置猫咪动画（待机 / 输入 / 删除 / `!` `?` 空格专用；`question.gif` 可缺省）
 - `res/mipmap-*/ic_launcher.png`、`ic_launcher_round.png`：传统应用图标
 - `res/mipmap-anydpi-v26/ic_launcher*.xml`、`res/drawable-xxxhdpi/ic_launcher_foreground.png`：Android 8+ 自适应图标
 - `version.properties`、`scripts/bump_version.py`：版本管理与构建前自增
