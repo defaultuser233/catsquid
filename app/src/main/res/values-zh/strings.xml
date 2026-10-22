@@ -98,6 +98,7 @@
     <string name="pick_image_title">选择图片的应用</string>
     <string name="toast_import_failed">有些图片无法读取</string>
     <string name="perm_ok">✓ OK</string>
+    <string name="perm_connecting">连接中…</string>
     <string name="perm_set">去设置 ›</string>
 
     <string name="diag_title">诊断</string>

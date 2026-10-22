@@ -66,7 +66,12 @@ class ImeWindowWatcher(
     }
 
     private fun poll() {
-        if (!isActive()) return
+        if (!isActive()) {
+            // 止まっている間の変化は数えない。再開時は今の状態を基準にし直す
+            lastSignature = ""
+            lastPkg = ""
+            return
+        }
         val windows = service.windows ?: return
         val win = windows.firstOrNull {
             it.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD && it.isActive

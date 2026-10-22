@@ -1,5 +1,6 @@
 package com.maoyou.typingpet
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
@@ -15,11 +16,15 @@ import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -216,15 +221,59 @@ class MainActivity : Activity() {
     // ---------- 権限(許可済みかどうかを1行ずつ表示) ----------
 
     private var permBox: LinearLayout? = null
+    private var lastPermKey = ""
+    private var permTicks = 0
+    private var accessibilityLaunchAt = 0L
+    private val permHandler = Handler(Looper.getMainLooper())
+
+    /** 設定画面での切り替えは反映が少し遅れるので、戻った直後は短い間隔で見直す */
+    private val permTicker = object : Runnable {
+        override fun run() {
+            if (permBox != null) {
+                val key = permStateKey()
+                if (key != lastPermKey) {
+                    logPermState()
+                    renderPerm()
+                }
+            }
+            permTicks++
+            permHandler.postDelayed(this, if (permTicks < 20) 300L else 1000L)
+        }
+    }
 
     override fun onResume() {
         super.onResume()
         // 設定画面から戻ってきたら許可の状態を更新
         if (permBox != null) renderPerm()
+        permHandler.removeCallbacks(permTicker)
+        permTicks = 0
+        permHandler.postDelayed(permTicker, 200L)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        permHandler.removeCallbacks(permTicker)
+    }
+
+    private fun permStateKey(): String = listOf(
+        isAccessibilityOk(),
+        accessibilityPending(),
+        Settings.canDrawOverlays(this),
+        PetAccessibilityService.connected,
+        OverlayService.isRunning
+    ).joinToString("|")
+
+    private fun logPermState() {
+        DiagLog.log(
+            this,
+            "perm open=${Settings.canDrawOverlays(this)} connected=${PetAccessibilityService.connected} " +
+                "manager=${managerHasUs()} secure=${secureListHasUs()}"
+        )
     }
 
     private fun renderPerm() {
         val box = permBox ?: return
+        lastPermKey = permStateKey()
         box.removeAllViews()
         box.addView(sectionCard {
             addView(smallLabel(getString(R.string.section_permission)))
@@ -233,7 +282,12 @@ class MainActivity : Activity() {
                 startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
             })
             addView(divider())
-            addView(permRow(getString(R.string.btn_accessibility), isAccessibilityEnabled()) {
+            addView(permRow(
+                getString(R.string.btn_accessibility),
+                isAccessibilityOk(),
+                accessibilityPending()
+            ) {
+                accessibilityLaunchAt = SystemClock.uptimeMillis()
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             })
             addView(divider())
@@ -364,7 +418,7 @@ class MainActivity : Activity() {
     }
 
     /** 権限1つ分の行。許可済みなら緑の「✓ OK」、まだなら「設定する ›」 */
-    private fun permRow(label: String, ok: Boolean, onClick: () -> Unit): View {
+    private fun permRow(label: String, ok: Boolean, pending: Boolean = false, onClick: () -> Unit): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -382,19 +436,49 @@ class MainActivity : Activity() {
             }
         })
         row.addView(
-            if (ok) pill(getString(R.string.perm_ok), Color.parseColor("#2E7D4F"), Color.parseColor("#E6F4EC"))
-            else TextView(this).apply {
-                text = getString(R.string.perm_set)
-                textSize = 14f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(accentText)
+            when {
+                ok -> pill(getString(R.string.perm_ok), Color.parseColor("#2E7D4F"), Color.parseColor("#E6F4EC"))
+                pending -> pill(getString(R.string.perm_connecting), Color.parseColor("#6B6B6B"), Color.parseColor("#EFEFEF"))
+                else -> TextView(this).apply {
+                    text = getString(R.string.perm_set)
+                    textSize = 14f
+                    typeface = Typeface.DEFAULT_BOLD
+                    setTextColor(accentText)
+                }
             }
         )
         return row
     }
 
-    private fun isAccessibilityEnabled(): Boolean {
-        val list = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
+    /** サービスが実際に接続済みなら、設定値の反映待ちでも「有効」とみなす */
+    private fun isAccessibilityOk(): Boolean =
+        PetAccessibilityService.connected || managerHasUs() || secureListHasUs()
+
+    /**
+     * 有効化の途中。設定画面から戻った直後や、システムが「有効」と言っているのに
+     * まだサービスが繋がっていない間は、赤(未設定)ではなく「接続中」と表示する。
+     */
+    private fun accessibilityPending(): Boolean {
+        if (isAccessibilityOk()) return false
+        if (managerHasUs() || secureListHasUs()) return true
+        return accessibilityLaunchAt > 0L && SystemClock.uptimeMillis() - accessibilityLaunchAt < 15_000L
+    }
+
+    private fun managerHasUs(): Boolean {
+        val manager = getSystemService(Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager ?: return false
+        val enabled = manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            ?: return false
+        return enabled.any { info ->
+            val id = info.id
+            if (id != null && id.startsWith("$packageName/")) return@any true
+            val si = info.resolveInfo?.serviceInfo
+            si != null && si.packageName == packageName
+        }
+    }
+
+    private fun secureListHasUs(): Boolean {
+        val list = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+            ?: return false
         return list.split(':').any {
             it.startsWith("$packageName/", ignoreCase = true) && it.contains("PetAccessibilityService", ignoreCase = true)
         }

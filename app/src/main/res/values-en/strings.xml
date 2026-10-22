@@ -99,6 +99,7 @@
     <string name="pick_image_title">Choose an app</string>
     <string name="toast_import_failed">Some images couldn\'t be loaded</string>
     <string name="perm_ok">✓ OK</string>
+    <string name="perm_connecting">Connecting…</string>
     <string name="perm_set">Set up ›</string>
 
     <string name="diag_title">Diagnostics</string>

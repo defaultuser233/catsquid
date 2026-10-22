@@ -99,6 +99,7 @@
     <string name="pick_image_title">이미지를 고를 앱</string>
     <string name="toast_import_failed">불러오지 못한 이미지가 있습니다</string>
     <string name="perm_ok">✓ OK</string>
+    <string name="perm_connecting">연결 중…</string>
     <string name="perm_set">설정 ›</string>
 
     <string name="diag_title">진단</string>

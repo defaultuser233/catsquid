@@ -63,11 +63,15 @@ class PetAccessibilityService : AccessibilityService() {
         super.onServiceConnected()
         connected = true
         inst = this
-        DiagLog.log(this, "onServiceConnected")
+        DiagLog.log(this, "onServiceConnected pid=${android.os.Process.myPid()}")
         DiagLog.log(this, "ime packages=${enabledImePackages().joinToString()}")
         imeWatcher = ImeWindowWatcher(
             this,
-            isActive = { OverlayService.instance != null },
+            isActive = {
+                // イベントを送ってくる入力法では走査しない(電池と ROM 対策)。5秒沈黙したら再開
+                OverlayService.instance != null &&
+                    SystemClock.uptimeMillis() - lastEventImeAt > 5000L
+            },
             onKeyActivity = { pkg -> handleImePollActivity(pkg) }
         ).also { it.start() }
     }
@@ -267,7 +271,10 @@ class PetAccessibilityService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
-        DiagLog.log(this, "onUnbind: $intent")
+        DiagLog.log(
+            this,
+            "onUnbind pid=${android.os.Process.myPid()} secureEnabled=${secureStillEnabled()} intent=$intent"
+        )
         connected = false
         imeWatcher?.stop()
         imeWatcher = null
@@ -276,11 +283,23 @@ class PetAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        DiagLog.log(this, "onDestroy")
+        DiagLog.log(this, "onDestroy pid=${android.os.Process.myPid()}")
         connected = false
         imeWatcher?.stop()
         imeWatcher = null
         if (inst === this) inst = null
         super.onDestroy()
+    }
+
+    /** 解绑されたとき、設定上はまだ有効か(ROM が勝手に切ったのか、プロセスが殺されたのか) */
+    private fun secureStillEnabled(): Boolean {
+        val list = android.provider.Settings.Secure.getString(
+            contentResolver,
+            android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        return list.split(':').any {
+            it.startsWith("$packageName/", ignoreCase = true) &&
+                it.contains("PetAccessibilityService", ignoreCase = true)
+        }
     }
 }
