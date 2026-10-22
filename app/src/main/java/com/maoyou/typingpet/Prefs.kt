@@ -12,7 +12,7 @@ object Prefs {
     const val LANG_SYSTEM = "system"
 
     // サイズ: small / medium / large / xlarge
-    fun getSizeKey(context: Context): String = sp(context).getString("size", "medium") ?: "medium"
+    fun getSizeKey(context: Context): String = sp(context).getString("size", "large") ?: "large"
     fun setSizeKey(context: Context, key: String) = sp(context).edit().putString("size", key).apply()
     fun getSizeDp(context: Context): Int = when (getSizeKey(context)) {
         "small" -> 100
@@ -45,9 +45,10 @@ object Prefs {
     fun getTiltSensitivityPct(context: Context): Int {
         val p = sp(context)
         if (p.contains("tiltSensitivityPct")) {
-            return p.getInt("tiltSensitivityPct", 25).coerceIn(0, 100)
+            return p.getInt("tiltSensitivityPct", 75).coerceIn(0, 100)
         }
-        return when (if (p.contains("tiltSensitivity")) p.getInt("tiltSensitivity", 1) else 1) {
+        if (!p.contains("tiltSensitivity")) return 75
+        return when (p.getInt("tiltSensitivity", 1)) {
             0 -> 10
             2 -> 50
             else -> 25
