@@ -1,4 +1,4 @@
-package com.typingpet.app
+package com.maoyou.typingpet
 
 /** 入力直後の数文字(window)の中から、登録文字が入力されたかを照合する */
 object TriggerMatcher {

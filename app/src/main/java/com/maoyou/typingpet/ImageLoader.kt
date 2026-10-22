@@ -1,4 +1,4 @@
-package com.typingpet.app
+package com.maoyou.typingpet
 
 import android.content.Context
 import android.graphics.Bitmap

@@ -1,25 +1,73 @@
-package com.typingpet.app
+package com.maoyou.typingpet
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
 class PetAccessibilityService : AccessibilityService() {
 
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        if (OverlayService.instance == null && Prefs.getAlwaysOnTop(this)) {
-            startService(Intent(this, OverlayService::class.java))
+    private var loggedEvents = 0
+    private var loggedNoOverlay = false
+    private var reactionLogs = 0
+
+    companion object {
+        @Volatile var connected = false
+            private set
+        @Volatile var eventCount = 0
+            private set
+        @Volatile var lastPackage = "-"
+            private set
+        @Volatile var lastEventType = 0
+            private set
+
+        fun resetStats() {
+            eventCount = 0
+            lastPackage = "-"
+            lastEventType = 0
         }
     }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        connected = true
+        DiagLog.log(this, "onServiceConnected")
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
-        if (OverlayService.instance == null) return
+        try {
+            handleEvent(event)
+        } catch (t: Throwable) {
+            DiagLog.log(this, "event error: ${Log.getStackTraceString(t)}")
+        }
+    }
+
+    private fun handleEvent(event: AccessibilityEvent?) {
+        if (event == null) return
+        eventCount++
+        lastEventType = event.eventType
+        lastPackage = event.packageName?.toString() ?: "-"
+        loggedEvents++
+        if (loggedEvents <= 3 || loggedEvents % 50 == 0) {
+            DiagLog.log(this, "event #$loggedEvents type=${event.eventType} pkg=$lastPackage")
+        }
+
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED) return
+        if (OverlayService.instance == null) {
+            if (!loggedNoOverlay) {
+                loggedNoOverlay = true
+                DiagLog.log(this, "overlay not running; text events ignored")
+            }
+            return
+        }
 
         // 表示中のキャラに文字の反応も「消したとき」もない / パスワード欄 → 中身は一切見ない
         val maxLen = OverlayService.maxKeyLength
         val watchDelete = OverlayService.watchDelete
+        if (reactionLogs < 5) {
+            reactionLogs++
+            DiagLog.log(this, "handle text event: maxLen=$maxLen watchDelete=$watchDelete")
+        }
         if (event.isPassword || (maxLen <= 0 && !watchDelete)) {
             OverlayService.reactIfRunning()
             return
@@ -27,8 +75,14 @@ class PetAccessibilityService : AccessibilityService() {
 
         val after = event.text?.firstOrNull()?.toString()
         val change = after?.let { findChange(event, it) }
-        if (after == null || change == null) {
+        if (after == null) {
             OverlayService.reactIfRunning()
+            return
+        }
+        if (change == null) {
+            // beforeText があり差分なし = 実際には変化していないイベント。
+            // ここで反応すると待機タイマーが延び続けるので無視する。
+            if (event.beforeText == null) OverlayService.reactIfRunning()
             return
         }
 
@@ -83,5 +137,19 @@ class PetAccessibilityService : AccessibilityService() {
         return null
     }
 
-    override fun onInterrupt() {}
+    override fun onInterrupt() {
+        DiagLog.log(this, "onInterrupt")
+    }
+
+    override fun onUnbind(intent: Intent?): Boolean {
+        DiagLog.log(this, "onUnbind: $intent")
+        connected = false
+        return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        DiagLog.log(this, "onDestroy")
+        connected = false
+        super.onDestroy()
+    }
 }

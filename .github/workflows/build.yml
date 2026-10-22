@@ -43,5 +43,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: typing-pet-debug-apk
+          name: catsquid-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk

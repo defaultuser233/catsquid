@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">タイピングペット</string>
+    <string name="app_name">猫鱿</string>
 
-    <string name="title_settings">🐾 タイピングペット 設定</string>
+    <string name="title_settings">🐾 猫鱿 設定</string>
+
+    <string name="language_dialog_title">言語 / Language / 언어 / 语言</string>
+    <string name="language_name_system">端末の言語</string>
+    <string name="language_name_ja">日本語</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ko">한국어</string>
+    <string name="language_name_zh">简体中文</string>
 
     <string name="section_permission">権限とペットの表示</string>
     <string name="btn_overlay">① 他のアプリの上に表示を許可</string>
@@ -49,7 +56,7 @@
     <string name="label_idle">待機イラスト</string>
     <string name="btn_add_image">＋ 画像を追加(複数選択OK)</string>
     <string name="empty_hint">まだ画像がありません</string>
-    <string name="desc_idle">入力していない時に表示されます。複数登録すると、待機に戻るたびにランダムで1枚選ばれます。未登録ならタイピング中の1番目の画像(なければ内蔵カラー)を使います。</string>
+    <string name="desc_idle">入力していない時に表示されます。複数登録すると、待機に戻るたびにランダムで1枚選ばれます。未登録ならタイピング中の1番目の画像(なければ内蔵アニメ)を使います。</string>
     <string name="label_steps">タイピング中イラスト(順番)</string>
     <string name="desc_steps">入力中は 1番目 → 2番目 → 3番目… の順に切り替わり、最後まで行くと1番目に戻ります。同じ番号に別パターンを追加すると、その番号のときにランダムで1枚選ばれます。</string>
     <string name="step_label">%1$d番目</string>
@@ -70,6 +77,7 @@
     <string name="label_chars">キャラ</string>
     <string name="desc_chars">イラスト(待機・タイピング中・文字で切り替え)と内蔵カラーを、キャラごとに保存できます。イラストタブでの編集は「編集中」のキャラに反映されます。</string>
     <string name="char_default_name">キャラ %1$d</string>
+    <string name="default_char_name">猫鱿</string>
     <string name="label_in_use">(編集中)</string>
     <string name="btn_use">編集する</string>
     <string name="btn_rename">名前変更</string>
@@ -92,4 +100,35 @@
     <string name="toast_import_failed">読み込めなかった画像があります</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_set">設定する ›</string>
+
+    <string name="diag_title">診断</string>
+    <string name="diag_summary">アクセシビリティ: %1$s / イベント: %2$d / 取得元: %3$s / オーバーレイ: %4$s</string>
+    <string name="diag_connected">接続済み</string>
+    <string name="diag_disconnected">未接続</string>
+    <string name="diag_running">実行中</string>
+    <string name="diag_stopped">未起動</string>
+    <string name="btn_test_reaction">入力反応をテスト</string>
+    <string name="btn_reset">カウントをリセット</string>
+    <string name="toast_overlay_not_running">先に③でペットを表示してください</string>
+    <string name="diag_hint">他のアプリで数文字入力してから、この画面に戻ってカウントを確認してください。0のままなら入力イベントが届いていません。</string>
+    <string name="btn_view_log">診断ログを見る</string>
+    <string name="log_title">診断ログ</string>
+    <string name="log_empty">ログはまだありません</string>
+    <string name="btn_copy">コピー</string>
+    <string name="toast_copied">コピーしました</string>
+
+    <string name="section_motion">センサー連動</string>
+    <string name="switch_tilt_title">傾きに合わせて動く</string>
+    <string name="switch_tilt_desc">スマホを傾けると、ペットが重力の方向へ少し滑って首をかしげます。</string>
+    <string name="label_haptic">端での振動</string>
+    <string name="desc_haptic">傾きが大きくなったときの振動です。</string>
+    <string name="haptic_off">なし</string>
+    <string name="haptic_weak">弱</string>
+    <string name="haptic_medium">中</string>
+    <string name="haptic_strong">強</string>
+    <string name="btn_test_haptic">テスト振動</string>
+    <string name="desc_motion_battery">センサーはペット表示中かつ画面オンのときだけ使います。</string>
+    <string name="motion_unsupported">この端末には加速度センサーがありません。</string>
+    <string name="btn_recenter_tilt">今の角度を基準にする</string>
+    <string name="toast_recentered">傾きの基準を更新しました</string>
 </resources>

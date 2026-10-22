@@ -4,16 +4,23 @@ apply plugin: 'kotlin-android'
 // GitHub Actions がビルド時だけ Secrets から復元する固定の署名鍵(リポジトリには入れない)
 def stableKeystore = file("typingpet.jks")
 
+// バージョンは version.properties を唯一の情報源にする
+def versionProps = new Properties()
+def versionFile = rootProject.file("version.properties")
+if (versionFile.exists()) {
+    versionFile.withInputStream { versionProps.load(it) }
+}
+
 android {
-    namespace 'com.typingpet.app'
+    namespace 'com.maoyou.typingpet'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.typingpet.app"
+        applicationId "com.maoyou.typingpet"
         minSdk 24
         targetSdk 34
-        versionCode 3
-        versionName "1.2.0"
+        versionCode Integer.parseInt(versionProps.getProperty("versionCode", "3"))
+        versionName versionProps.getProperty("versionName", "1.2.0")
     }
 
     signingConfigs {

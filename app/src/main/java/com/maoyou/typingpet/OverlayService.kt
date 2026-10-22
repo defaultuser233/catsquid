@@ -1,10 +1,13 @@
-package com.typingpet.app
+package com.maoyou.typingpet
 
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.content.Intent
 import android.graphics.Bitmap
@@ -13,6 +16,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.WindowManager
@@ -22,6 +26,24 @@ class OverlayService : Service() {
 
     private lateinit var windowManager: WindowManager
     private val handler = Handler(Looper.getMainLooper())
+
+    private lateinit var motion: MotionController
+    private var screenOn = true
+
+    private val screenReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                Intent.ACTION_SCREEN_OFF -> {
+                    screenOn = false
+                    updateMotion()
+                }
+                Intent.ACTION_SCREEN_ON -> {
+                    screenOn = true
+                    updateMotion()
+                }
+            }
+        }
+    }
 
     private class Pet(
         val id: String,
@@ -44,15 +66,23 @@ class OverlayService : Service() {
     companion object {
         @Volatile var instance: OverlayService? = null
 
+        val isRunning: Boolean get() = instance != null
+
         /** 表示中キャラに登録された文字のうち最長の長さ(0なら文字の反応なし) */
         val maxKeyLength: Int get() = instance?.maxKeyLen ?: 0
 
-        /** 表示中キャラの誰かが「⌫ 消したとき」を登録しているか */
+        /** 表示中キャラの誰かが「⌫ 消したとき」を登録しているか(内蔵アニメを使うキャラも含む) */
         val watchDelete: Boolean get() = instance?.watchDel ?: false
 
         /** 文字が消されただけのときに呼ぶ */
         fun reactDelete() {
-            instance?.let { s -> s.handler.post { s.pets.values.forEach { p -> p.view.react(p.deleteIdx) } } }
+            instance?.let { s ->
+                s.handler.post {
+                    s.pets.values.forEach { p ->
+                        if (p.deleteIdx >= 0) p.view.react(p.deleteIdx) else p.view.reactDelete()
+                    }
+                }
+            }
         }
 
         fun reactIfRunning() {
@@ -68,17 +98,57 @@ class OverlayService : Service() {
         fun refreshIfRunning() {
             instance?.let { s -> s.handler.post { s.sync() } }
         }
+
+        /** 今の持ち方を傾きのニュートラル位置にする */
+        fun recenterTilt() {
+            instance?.let { s -> s.handler.post { s.motion.recenter() } }
+        }
     }
 
     override fun onCreate() {
         super.onCreate()
+        DiagLog.log(this, "OverlayService onCreate")
         instance = this
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
+        screenOn = (getSystemService(POWER_SERVICE) as? PowerManager)?.isInteractive ?: true
+        motion = MotionController(
+            this,
+            onTilt = { nx, ny -> pets.values.forEach { it.view.setTilt(nx, ny) } },
+            onEdge = { Haptics.bump(this, Prefs.getHapticLevel(this)) }
+        )
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_SCREEN_ON)
+            addAction(Intent.ACTION_SCREEN_OFF)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= 33) {
+                registerReceiver(screenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(screenReceiver, filter)
+            }
+        } catch (_: Exception) {
+        }
         sync()
     }
 
+    private fun updateMotion() {
+        val active = screenOn && Prefs.getTiltEnabled(this) && pets.isNotEmpty()
+        if (active) {
+            motion.start()
+        } else {
+            motion.stop()
+            pets.values.forEach { it.view.setTilt(0f, 0f) }
+        }
+    }
+
+    private var reactLogs = 0
+
     private fun reactAll(window: String?, newFrom: Int) {
         handler.post {
+            if (reactLogs < 10) {
+                reactLogs++
+                DiagLog.log(this, "reactAll pets=${pets.size}")
+            }
             pets.values.forEach { p ->
                 val idx = if (window == null) -1 else TriggerMatcher.find(window, newFrom, p.keys)
                 p.view.react(idx)
@@ -148,7 +218,8 @@ class OverlayService : Service() {
         }
 
         maxKeyLen = pets.values.flatMap { it.keys.flatten() }.maxOfOrNull { it.length } ?: 0
-        watchDel = pets.values.any { it.deleteIdx >= 0 }
+        watchDel = pets.values.any { it.deleteIdx >= 0 || it.view.usesBuiltInArt }
+        updateMotion()
     }
 
     private fun createPet(id: String): Pet? {
@@ -204,6 +275,9 @@ class OverlayService : Service() {
     }
 
     override fun onDestroy() {
+        DiagLog.log(this, "OverlayService onDestroy")
+        if (::motion.isInitialized) motion.stop()
+        try { unregisterReceiver(screenReceiver) } catch (_: Exception) {}
         super.onDestroy()
         instance = null
         pets.values.forEach { p -> try { windowManager.removeView(p.view) } catch (e: Exception) {} }

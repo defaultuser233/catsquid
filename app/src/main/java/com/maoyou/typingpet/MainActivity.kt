@@ -1,4 +1,4 @@
-package com.typingpet.app
+package com.maoyou.typingpet
 
 import android.app.Activity
 import android.app.AlertDialog
@@ -11,6 +11,8 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
+import android.hardware.Sensor
+import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -37,6 +39,8 @@ import androidx.core.graphics.drawable.IconCompat
 class MainActivity : Activity() {
 
     private var currentTab = 0 // 0:基本 1:プリセット 2:イラスト
+
+    private val languageCodes = arrayOf(Prefs.LANG_SYSTEM, "ja", "en", "ko", "zh")
 
     private lateinit var tabBar: LinearLayout
     private lateinit var basicBox: LinearLayout
@@ -83,16 +87,24 @@ class MainActivity : Activity() {
     }
 
     private fun showLanguageDialog(cancelable: Boolean) {
-        val labels = arrayOf("日本語", "English", "한국어")
-        val codes = arrayOf("ja", "en", "ko")
+        val codes = languageCodes
+        val labels = codes.map { languageLabel(it) }.toTypedArray()
         AlertDialog.Builder(this)
-            .setTitle("言語 / Language / 언어")
+            .setTitle(getString(R.string.language_dialog_title))
             .setItems(labels) { _, which ->
                 Prefs.setLanguage(this, codes[which])
                 recreate()
             }
             .setCancelable(cancelable)
             .show()
+    }
+
+    private fun languageLabel(code: String): String = when (code) {
+        "ja" -> getString(R.string.language_name_ja)
+        "en" -> getString(R.string.language_name_en)
+        "ko" -> getString(R.string.language_name_ko)
+        "zh" -> getString(R.string.language_name_zh)
+        else -> getString(R.string.language_name_system)
     }
 
     /**
@@ -165,9 +177,7 @@ class MainActivity : Activity() {
         })
         titleRow.addView(Button(this).apply {
             tag = "small"
-            text = "🌐 " + when (Prefs.getLanguage(this@MainActivity)) {
-                "ja" -> "日本語"; "en" -> "English"; "ko" -> "한국어"; else -> "Language"
-            }
+            text = "🌐 " + languageLabel(Prefs.getLanguage(this@MainActivity))
             setOnClickListener { showLanguageDialog(cancelable = true) }
         })
         root.addView(titleRow)
@@ -225,6 +235,8 @@ class MainActivity : Activity() {
             addView(permRow(getString(R.string.btn_accessibility), isAccessibilityEnabled()) {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             })
+            addView(divider())
+            addView(diagnosticsView())
             addView(spacer(12))
             addView(Button(this@MainActivity).apply {
                 tag = "primary"
@@ -237,6 +249,107 @@ class MainActivity : Activity() {
             })
         })
         restyle(box)
+    }
+
+    /** 入力イベントが届いているか、オーバーレイが動いているかを確認するための表示 */
+    private fun diagnosticsView(): View {
+        val connected = PetAccessibilityService.connected
+        val overlay = OverlayService.isRunning
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(2), dp(10), dp(2), dp(10))
+
+            addView(TextView(this@MainActivity).apply {
+                text = getString(R.string.diag_title)
+                textSize = 12f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(sub)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = getString(
+                    R.string.diag_summary,
+                    getString(if (connected) R.string.diag_connected else R.string.diag_disconnected),
+                    PetAccessibilityService.eventCount,
+                    PetAccessibilityService.lastPackage,
+                    getString(if (overlay) R.string.diag_running else R.string.diag_stopped)
+                )
+                textSize = 12f
+                setTextColor(sub)
+                setPadding(0, dp(4), 0, dp(4))
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = getString(R.string.diag_hint)
+                textSize = 11f
+                setTextColor(sub)
+                setPadding(0, 0, 0, dp(8))
+            })
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(Button(this@MainActivity).apply {
+                    tag = "small"
+                    text = getString(R.string.btn_test_reaction)
+                    setOnClickListener {
+                        if (OverlayService.isRunning) {
+                            OverlayService.reactIfRunning()
+                        } else {
+                            Toast.makeText(this@MainActivity, getString(R.string.toast_overlay_not_running), Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT
+                    ).apply { marginEnd = dp(8) }
+                })
+                addView(Button(this@MainActivity).apply {
+                    tag = "small"
+                    text = getString(R.string.btn_reset)
+                    setOnClickListener {
+                        PetAccessibilityService.resetStats()
+                        renderPerm()
+                    }
+                })
+            })
+            addView(Button(this@MainActivity).apply {
+                tag = "small"
+                text = getString(R.string.btn_view_log)
+                setOnClickListener { showLogDialog() }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(8) }
+            })
+        }
+    }
+
+    private fun showLogDialog() {
+        val text = DiagLog.read(this).takeLast(8000)
+        if (text.isBlank()) {
+            Toast.makeText(this, getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
+            return
+        }
+        val content = TextView(this).apply {
+            this.text = text
+            textSize = 11f
+            setTextIsSelectable(true)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+        }
+        val scroll = ScrollView(this).apply {
+            addView(content)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(360)
+            )
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.log_title))
+            .setView(scroll)
+            .setPositiveButton(getString(R.string.btn_ok), null)
+            .setNeutralButton(getString(R.string.btn_copy)) { _, _ ->
+                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("diag", text))
+                Toast.makeText(this, getString(R.string.toast_copied), Toast.LENGTH_SHORT).show()
+            }
+            .show()
     }
 
     /** 権限1つ分の行。許可済みなら緑の「✓ OK」、まだなら「設定する ›」 */
@@ -367,7 +480,11 @@ class MainActivity : Activity() {
                 thumbFor(uri)?.let { setImageBitmap(it) }
             }
         } else {
-            PetView(this).apply { preset = c.preset; showShadow = false }
+            PetView(this).apply {
+                preset = c.preset
+                showShadow = false
+                animateBuiltIn = false
+            }
         }
         face.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
@@ -536,6 +653,71 @@ class MainActivity : Activity() {
         basicBox.addView(spacer(16))
 
         basicBox.addView(sectionCard {
+            addView(smallLabel(getString(R.string.section_motion)))
+            addView(spacer(4))
+            addView(switchRow(
+                getString(R.string.switch_tilt_title),
+                getString(R.string.switch_tilt_desc),
+                Prefs.getTiltEnabled(this@MainActivity)
+            ) { checked ->
+                Prefs.setTiltEnabled(this@MainActivity, checked)
+                OverlayService.refreshIfRunning()
+            })
+            addView(divider())
+            addView(smallLabel(getString(R.string.label_haptic)))
+            addView(descLabel(getString(R.string.desc_haptic)))
+            addView(spacer(8))
+            addView(segRow(
+                listOf(
+                    getString(R.string.haptic_off) to "0",
+                    getString(R.string.haptic_weak) to "1",
+                    getString(R.string.haptic_medium) to "2",
+                    getString(R.string.haptic_strong) to "3"
+                ),
+                Prefs.getHapticLevel(this@MainActivity).toString()
+            ) { key ->
+                Prefs.setHapticLevel(this@MainActivity, key.toInt())
+                OverlayService.refreshIfRunning()
+                renderBasic()
+            })
+            addView(Button(this@MainActivity).apply {
+                tag = "small"
+                text = getString(R.string.btn_test_haptic)
+                setOnClickListener {
+                    Haptics.bump(this@MainActivity, Prefs.getHapticLevel(this@MainActivity))
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(8) }
+            })
+            addView(descLabel(getString(R.string.desc_motion_battery)))
+            addView(Button(this@MainActivity).apply {
+                tag = "small"
+                text = getString(R.string.btn_recenter_tilt)
+                setOnClickListener {
+                    if (OverlayService.isRunning) {
+                        OverlayService.recenterTilt()
+                        Toast.makeText(this@MainActivity, getString(R.string.toast_recentered), Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this@MainActivity, getString(R.string.toast_overlay_not_running), Toast.LENGTH_SHORT).show()
+                    }
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = dp(8) }
+            })
+            val hasAccelerometer = (getSystemService(Context.SENSOR_SERVICE) as? SensorManager)
+                ?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null
+            if (!hasAccelerometer) {
+                addView(descLabel(getString(R.string.motion_unsupported)))
+            }
+        })
+
+        basicBox.addView(spacer(16))
+
+        basicBox.addView(sectionCard {
             addView(smallLabel(getString(R.string.label_icon_section)))
             addView(descLabel(getString(R.string.desc_icon_section)))
             addView(spacer(12))
@@ -578,6 +760,7 @@ class MainActivity : Activity() {
                 }
                 val preview = PetView(this@MainActivity).apply {
                     preset = i
+                    animateBuiltIn = false
                     layoutParams = LinearLayout.LayoutParams(dp(64), dp(64))
                     setOnClickListener {
                         Prefs.setPreset(this@MainActivity, i)
@@ -613,7 +796,7 @@ class MainActivity : Activity() {
         addView(descLabel(getString(R.string.desc_chars)))
         addView(spacer(12))
 
-        Prefs.ensureCharacters(this@MainActivity, getString(R.string.char_default_name, 1))
+        Prefs.ensureCharacters(this@MainActivity)
         val names = Prefs.getCharacterNames(this@MainActivity)
         val active = Prefs.getActiveCharacter(this@MainActivity)
 

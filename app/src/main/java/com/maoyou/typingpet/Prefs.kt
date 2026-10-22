@@ -1,4 +1,4 @@
-package com.typingpet.app
+package com.maoyou.typingpet
 
 import android.content.Context
 import org.json.JSONArray
@@ -37,6 +37,14 @@ object Prefs {
     fun getShowShadow(context: Context): Boolean = sp(context).getBoolean("showShadow", true)
     fun setShowShadow(context: Context, value: Boolean) = sp(context).edit().putBoolean("showShadow", value).apply()
 
+    // 傾きでペットを動かす
+    fun getTiltEnabled(context: Context): Boolean = sp(context).getBoolean("motionTilt", true)
+    fun setTiltEnabled(context: Context, value: Boolean) = sp(context).edit().putBoolean("motionTilt", value).apply()
+
+    // 傾き端の振動 0(なし)〜3(強)
+    fun getHapticLevel(context: Context): Int = sp(context).getInt("hapticLevel", 2)
+    fun setHapticLevel(context: Context, level: Int) = sp(context).edit().putInt("hapticLevel", level).apply()
+
     // 表示位置
     fun getPosX(context: Context): Int = sp(context).getInt("posX", 40)
     fun getPosY(context: Context): Int = sp(context).getInt("posY", 200)
@@ -54,7 +62,7 @@ object Prefs {
     fun getPreset(context: Context): Int = sp(context).getInt("preset", 0)
     fun setPreset(context: Context, preset: Int) = sp(context).edit().putInt("preset", preset).apply()
 
-    // 表示言語: "system" / "ja" / "en" / "ko"。未選択の間は初回ポップアップを出す
+    // 表示言語: "system" / "ja" / "en" / "ko" / "zh"。未選択の間は初回ポップアップを出す
     fun hasChosenLanguage(context: Context): Boolean = sp(context).contains("language")
     fun getLanguage(context: Context): String = sp(context).getString("language", LANG_SYSTEM) ?: LANG_SYSTEM
     fun setLanguage(context: Context, code: String) = sp(context).edit().putString("language", code).apply()
@@ -83,6 +91,7 @@ object Prefs {
     private const val KEY_MIGRATED_V2 = "imagesV2"
     private const val KEY_MIGRATED_V3 = "imagesV3"
     private const val KEY_MIGRATED_V4 = "imagesV4"
+    private const val KEY_DEFAULT_CHAR_RENAMED = "defaultCharRenamed"
 
     /** 最初から用意しておく文字の反応(画像はユーザーが追加。画像が0枚の間は照合しない) */
     private fun defaultTriggers(): MutableList<Trigger> = mutableListOf(
@@ -291,12 +300,13 @@ object Prefs {
      * キャラが1体もなければ今の設定を1体目として登録する。
      * あわせて、古いデータにid・位置がなければ付ける(以前の表示位置は編集中キャラに引き継ぐ)。
      */
-    fun ensureCharacters(context: Context, defaultName: String = context.getString(R.string.char_default_name, 1)) {
+    fun ensureCharacters(context: Context, defaultName: String = context.getString(R.string.default_char_name)) {
         val arr = readChars(context)
         if (arr.length() == 0) {
             arr.put(fillFromCurrent(context, JSONObject().put("n", defaultName)))
             sp(context).edit().putInt(KEY_ACTIVE, 0).apply()
         }
+        migrateDefaultCharacterName(context, arr)
         val active = getActiveCharacter(context)
         var changed = false
         for (i in 0 until arr.length()) {
@@ -312,6 +322,24 @@ object Prefs {
             }
         }
         if (changed) writeChars(context, arr)
+    }
+
+    /** 以前の自動生成名「キャラ 1 / 角色 1 / Character 1 / 캐릭터 1」を「猫鱿」に引き継ぐ */
+    private fun migrateDefaultCharacterName(context: Context, arr: JSONArray) {
+        if (sp(context).getBoolean(KEY_DEFAULT_CHAR_RENAMED, false)) return
+        sp(context).edit().putBoolean(KEY_DEFAULT_CHAR_RENAMED, true).apply()
+        val first = arr.optJSONObject(0) ?: return
+        val name = first.optString("n", "")
+        val legacyNames = setOf(
+            "キャラ 1", "キャラ1",
+            "角色 1", "角色1",
+            "Character 1", "Character1",
+            "캐릭터 1", "캐릭터1"
+        )
+        if (name in legacyNames) {
+            first.put("n", context.getString(R.string.default_char_name))
+            writeChars(context, arr)
+        }
     }
 
     fun getCharacterNames(context: Context): List<String> {

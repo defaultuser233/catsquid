@@ -1,62 +1,36 @@
-# タイピングペット (TypingPet)
+# 猫鱿 (CatSquid)
 
-Xなど他のアプリの上にフワッと浮かぶ、丸っこいペットのオーバーレイアプリです。専用キーボードは不要で、普段使っているキーボードのままで大丈夫です。どこかの入力欄に文字を打つたびに、ペットの表情(または追加した自分のイラスト)が切り替わってちょこっと跳ねます。好きな文字(「！」「あ」など)を専用イラストに割り当てることもでき、入力が止まるとすぐに1枚目の表示に自動で戻ります。
+A floating cat pet overlay for Android that reacts to typing, tilt, and touch.
 
-仕組み：①「他のアプリの上に表示」権限で画面にペットを浮かせ、②アクセシビリティ機能でどこかの入力欄が変化したことを検知してペットに知らせています。基本的には変化があったことだけを見ますが、「文字で切り替え」を設定している場合のみ、入力した位置の直前数文字に登録文字があるかをその場で照合します（保存・送信は一切せず、パスワード欄は見ません）。
+**Languages:** [日本語](README.ja.md) | [English](README.en.md) | [한국어](README.ko.md) | [简体中文](README.zh.md)
 
-初回起動時に言語(日本語/English/한국어)を選ぶポップアップが出ます。設定画面の「言語 / Language / 언어」ボタンからいつでも変更できます。
+## Features
 
-## 設定できること
+- Floats above other apps with the "display over other apps" permission.
+- Reacts to typing through an accessibility service; no custom keyboard required.
+- Built-in cat GIF animations (4 idle / 3 typing / 1 delete) plus custom images.
+- Character presets, multiple pets on screen, four built-in colors.
+- Tilt the phone and the pet follows gravity; a strong tilt triggers a short haptic bump.
+- Japanese / English / Korean / Simplified Chinese UI.
+- Adaptive launcher icon for Android 8+.
 
-- **言語**：日本語 / English / 한국어(初回ポップアップ＋設定画面のボタンでいつでも変更可)
-- **サイズ**：小 / 中 / 大 / 特大
-- **揺れの強さ**：なし(画像だけ切り替え) 〜 3段階
-- **常に最前面に固定**：ONで他アプリを開くたびに自動表示、OFFで手動表示のみ
-- **位置ロック**：ONでタップが下のアプリに素通りし、ドラッグ移動も不可に
-- **位置の初期化**
-- **キャラ保存**：イラスト一式＋内蔵カラーをキャラごとに名前を付けて保存し、切り替え可能
-- **複数キャラ表示**：保存したキャラを何体でも同時に画面に出せる。上の「表示するキャラ」アイコンをタップで表示／非表示、画面上ではキャラごとにドラッグで移動
-- **内蔵プリセット4色**から選択
-- **イラストは3種類に分けて登録(枚数無制限)**
-  - **待機**：入力していない時に表示。複数登録すると待機に戻るたびにランダムで1枚
-  - **タイピング中(順番)**：1番目→2番目→…の順に切り替え。各番号に別パターンを追加でき、その番号ではランダムで1枚
-  - **文字で切り替え(任意)**：好きな文字を登録すると、入力した瞬間にその画像からランダムで1枚。1つのイラストに複数の文字を割り当て可能(例：「あ」「う」でどよーん)
-  - 入力が止まると待機に戻り、次は1番目から。画像が1枚もなければ内蔵カラーで動作
-- **ホーム画面のアイコンを変更(任意)**：好きな画像を選んでホーム画面にショートカットとして追加できます(下記「アイコンについて」を参照)。
+## Quick start
 
-## アイコンについて
+1. Build with GitHub Actions (`.github/workflows/build.yml`) or install `app/build/outputs/apk/release/app-release.apk`.
+2. Allow "display over other apps" and enable accessibility for 猫鱿.
+3. Tap "Show pet" and type in any app.
 
-アプリ本体のアイコンはデフォルトで自作の丸い顔のイラストになっています。Androidの仕組み上、インストール後にアプリ本体のアイコン画像を書き換えることはできないため、「好きな画像に変えたい」場合は設定画面の「ホーム画面のアイコンを変更」から画像を選ぶと、その画像を使ったショートカットをホーム画面に追加できます。今後はそのショートカットからアプリを開いてください（元のアイコンはアプリ一覧に残ります）。
+## Build and versioning
 
-## GitHubでビルドする（Android Studio不要）
+- Before every APK build, run `python3 scripts/bump_version.py`.
+- `version.properties` is the single source of truth; `app/build.gradle` and manual builds read it.
+- Details: [AGENTS.md](AGENTS.md).
 
-1. このフォルダの中身をGitHubの新規リポジトリにそのままpushします（`.github`フォルダごと。隠しフォルダなので、Finder/エクスプローラーの表示設定に注意するか、GitHub上で直接ファイルを作成してください）。ファイルの配置先は以下の通りです。
-   - `strings.xml` → `app/src/main/res/values/strings.xml`
-   - `values-en/strings.xml` → `app/src/main/res/values-en/strings.xml`
-   - `values-ko/strings.xml` → `app/src/main/res/values-ko/strings.xml`
-   - `app-build.gradle` → `app/build.gradle`（ファイル名を`build.gradle`に変更して配置。ルート直下の`build.gradle`とは別物です）
-   - `mipmap-*/ic_launcher.png`, `mipmap-*/ic_launcher_round.png` → 同名フォルダごと `app/src/main/res/` の下に配置（例: `mipmap-mdpi/ic_launcher.png` → `app/src/main/res/mipmap-mdpi/ic_launcher.png`）
-2. **Actions** タブを開くと `Build APK` が自動で走ります（手動で走らせたい場合は `Run workflow`）。
-3. 完了したら実行結果ページ下部の **Artifacts** から `typing-pet-debug-apk` をダウンロードし、zipを展開して `app-debug.apk` を取り出します。
+## Documentation
 
-## スマホでの使い方
-
-1. `app-debug.apk` をスマホに転送してインストール（初回は「提供元不明のアプリ」許可が必要）。
-2. 初回起動時に言語を選択。
-3. ①「他のアプリの上に表示を許可」→ 設定でON。
-4. ②「アクセシビリティ設定を開く」→ 一覧から「タイピングペット」をON（Android標準の警告文が出ますが、上記の文字照合以外は何もしません）。
-5. ③「ペットを表示する」をタップ。
-6. 「プリセット」タブで好きな色を選ぶか、「イラスト」タブで自分の画像を追加。「文字で切り替え」もここから設定できます。
-7. Xなど好きなアプリで文字を打つと、ペットが反応します。ドラッグで位置も変えられます。
-
-## 中身について
-
-- `Prefs.kt` : すべての設定の保存・読み込み（言語設定、！／？専用イラストのURIも含む）
-- `LocaleHelper.kt` : 選んだ言語をActivityに適用するヘルパー
-- `MainActivity.kt` : 設定画面（初回言語ポップアップ、権限ボタン＋基本設定/プリセット/イラストの3タブ、ホーム画面アイコン追加、すべてコードで組み立て）
-- `PetView.kt` : ペットをCanvasで描画（待機 / タイピングセット / ！？ の切り替え、もちもちアニメ）
-- `ImageLoader.kt` : 登録画像を必要なサイズに縮小して読み込む
-- `OverlayService.kt` : ペットを画面上に浮かせて表示。設定変更をリアルタイム反映
-- `PetAccessibilityService.kt` : 他アプリでの入力を検知してペットに知らせる。「文字で切り替え」が設定されている場合のみ、入力位置の直前数文字に登録文字があるかをその場で照合する
-- `res/values/strings.xml`, `res/values-en/strings.xml`, `res/values-ko/strings.xml` : 日本語・英語・韓国語の文言
-- `res/mipmap-*/ic_launcher.png`, `ic_launcher_round.png` : アプリの標準アイコン
+| Language | README |
+| --- | --- |
+| 日本語 | [README.ja.md](README.ja.md) |
+| English | [README.en.md](README.en.md) |
+| 한국어 | [README.ko.md](README.ko.md) |
+| 简体中文 | [README.zh.md](README.zh.md) |

@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">TypingPet</string>
+    <string name="app_name">猫鱿</string>
 
-    <string name="title_settings">🐾 TypingPet Settings</string>
+    <string name="title_settings">🐾 猫鱿 Settings</string>
+
+    <string name="language_dialog_title">Language</string>
+    <string name="language_name_system">System</string>
+    <string name="language_name_ja">日本語</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ko">한국어</string>
+    <string name="language_name_zh">简体中文</string>
 
     <string name="section_permission">Permissions &amp; Display</string>
     <string name="btn_overlay">① Allow display over other apps</string>
@@ -49,7 +56,7 @@
     <string name="label_idle">Idle images</string>
     <string name="btn_add_image">+ Add images (multi-select OK)</string>
     <string name="empty_hint">No images yet</string>
-    <string name="desc_idle">Shown when you\'re not typing. With several, one is picked at random each time it goes idle. If empty, the 1st typing image (or the built-in color) is used.</string>
+    <string name="desc_idle">Shown when you\'re not typing. With several, one is picked at random each time it goes idle. If empty, the 1st typing image (or the built-in animation) is used.</string>
     <string name="label_steps">Typing images (in order)</string>
     <string name="desc_steps">While typing, images switch 1st → 2nd → 3rd… and loop back to the 1st. Add alternates to a number and one of them is picked at random each time that number comes up.</string>
     <string name="step_label">#%1$d</string>
@@ -70,6 +77,7 @@
     <string name="label_chars">Characters</string>
     <string name="desc_chars">Save your images (idle, typing, character triggers) and built-in color per character. Edits in the Images tab apply to the character marked \"editing\".</string>
     <string name="char_default_name">Character %1$d</string>
+    <string name="default_char_name">猫鱿</string>
     <string name="label_in_use">(editing)</string>
     <string name="btn_use">Edit</string>
     <string name="btn_rename">Rename</string>
@@ -92,4 +100,35 @@
     <string name="toast_import_failed">Some images couldn\'t be loaded</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_set">Set up ›</string>
+
+    <string name="diag_title">Diagnostics</string>
+    <string name="diag_summary">Accessibility: %1$s / Events: %2$d / From: %3$s / Overlay: %4$s</string>
+    <string name="diag_connected">Connected</string>
+    <string name="diag_disconnected">Not connected</string>
+    <string name="diag_running">Running</string>
+    <string name="diag_stopped">Not running</string>
+    <string name="btn_test_reaction">Test typing reaction</string>
+    <string name="btn_reset">Reset count</string>
+    <string name="toast_overlay_not_running">Show the pet first (③)</string>
+    <string name="diag_hint">Type a few characters in another app, then return here and check the count. If it stays 0, no text events are arriving.</string>
+    <string name="btn_view_log">View diagnostic log</string>
+    <string name="log_title">Diagnostic log</string>
+    <string name="log_empty">No log yet</string>
+    <string name="btn_copy">Copy</string>
+    <string name="toast_copied">Copied</string>
+
+    <string name="section_motion">Motion</string>
+    <string name="switch_tilt_title">Tilt with the phone</string>
+    <string name="switch_tilt_desc">Tilt the phone and the pet slides gently toward gravity and leans its head.</string>
+    <string name="label_haptic">Edge haptics</string>
+    <string name="desc_haptic">Vibration when you tilt the phone strongly.</string>
+    <string name="haptic_off">Off</string>
+    <string name="haptic_weak">Weak</string>
+    <string name="haptic_medium">Medium</string>
+    <string name="haptic_strong">Strong</string>
+    <string name="btn_test_haptic">Test vibration</string>
+    <string name="desc_motion_battery">Sensors are used only while the pet is shown and the screen is on.</string>
+    <string name="motion_unsupported">This device has no accelerometer.</string>
+    <string name="btn_recenter_tilt">Use current angle</string>
+    <string name="toast_recentered">Tilt baseline updated</string>
 </resources>

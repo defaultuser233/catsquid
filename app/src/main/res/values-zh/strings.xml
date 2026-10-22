@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">猫鱿</string>
+
+    <string name="title_settings">🐾 猫鱿 设置</string>
+
+    <string name="language_dialog_title">语言</string>
+    <string name="language_name_system">跟随系统</string>
+    <string name="language_name_ja">日本語</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ko">한국어</string>
+    <string name="language_name_zh">简体中文</string>
+
+    <string name="section_permission">权限与宠物显示</string>
+    <string name="btn_overlay">① 允许在其他应用上层显示</string>
+    <string name="btn_accessibility">② 打开无障碍设置</string>
+    <string name="btn_show_pet">③ 显示宠物</string>
+
+    <string name="tab_basic">基本设置</string>
+    <string name="tab_preset">预设</string>
+    <string name="tab_image">插画</string>
+
+    <string name="label_size">大小</string>
+    <string name="size_small">小</string>
+    <string name="size_medium">中</string>
+    <string name="size_large">大</string>
+    <string name="size_xlarge">特大</string>
+
+    <string name="label_shake">晃动强度</string>
+    <string name="desc_shake">打字时宠物的晃动程度。选择“无”时宠物不动，只切换图片。</string>
+    <string name="shake_none">无</string>
+    <string name="shake_1">1 档</string>
+    <string name="shake_2">2 档</string>
+    <string name="shake_3">3 档</string>
+
+    <string name="label_display">显示</string>
+    <string name="switch_always_on_top_title">始终置顶</string>
+    <string name="switch_always_on_top_desc">开启后，打开其他应用时宠物也会自动出现。关闭时只有点击③按钮才会显示。</string>
+    <string name="switch_lock_title">位置锁定（点击穿透）</string>
+    <string name="switch_lock_desc">开启后，点击会穿透到下层的应用，也无法拖动宠物。</string>
+    <string name="btn_reset_pos">重置位置</string>
+
+    <string name="label_builtin_color">内置颜色</string>
+    <string name="desc_builtin_color">在“插画”标签页添加图片之前，会使用这里选择的颜色。</string>
+    <string name="label_selected">已选择</string>
+    <string name="label_select">选择</string>
+
+    <string name="btn_remove">删除</string>
+
+    <string name="label_icon_section">主屏幕图标（可选）</string>
+    <string name="desc_icon_section">由于 Android 的限制，应用本身的图标无法在安装后更改。作为替代，可以用选中的图片在主屏幕上创建快捷方式。添加后请通过该快捷方式打开应用。</string>
+    <string name="btn_add_icon_shortcut">选择图片并添加到主屏幕</string>
+    <string name="toast_icon_not_supported">此设备不支持在主屏幕添加快捷方式</string>
+
+    <string name="label_idle">待机插画</string>
+    <string name="btn_add_image">＋ 添加图片（可多选）</string>
+    <string name="empty_hint">还没有图片</string>
+    <string name="desc_idle">未输入时显示。注册多张后，每次回到待机状态都会随机选择一张。未注册时使用打字状态的第 1 张图片（若也没有则使用内置动画）。</string>
+    <string name="label_steps">打字中插画（按顺序）</string>
+    <string name="desc_steps">输入时按第 1 张 → 第 2 张 → 第 3 张…的顺序切换，到最后一张后回到第 1 张。为同一编号添加其他图案后，该编号会随机选择一张。</string>
+    <string name="step_label">第 %1$d 张</string>
+    <string name="btn_add_variant">＋ 添加其他图案</string>
+    <string name="btn_add_step">＋ 添加下一个编号</string>
+    <string name="btn_delete_step">删除此编号</string>
+    <string name="label_triggers">按文字切换（可选）</string>
+    <string name="desc_triggers">输入已注册的文字时，会从对应图片中随机显示一张。可以为一张插画分配多个文字（例如输入“啊”“呜”时显示同一个表情）。全角和半角按不同文字处理。输入内容不会被保存或发送，只会在输入位置前方就地匹配已注册的文字。</string>
+    <string name="trigger_keys_label">触发的文字：%1$s</string>
+    <string name="key_format">“%1$s”</string>
+    <string name="btn_edit_keys">编辑文字</string>
+    <string name="btn_add_trigger">＋ 添加文字反应</string>
+    <string name="dialog_keys_title">触发的文字</string>
+    <string name="dialog_keys_hint">例如：啊 呜（用空格分隔可输入多个）</string>
+    <string name="btn_ok">确定</string>
+    <string name="btn_cancel">取消</string>
+    <string name="toast_keys_empty">请至少输入一个文字</string>
+    <string name="label_chars">角色</string>
+    <string name="desc_chars">可以按角色分别保存插画（待机、打字中、按文字切换）和内置颜色。“插画”标签页中的编辑会应用到当前编辑的角色。</string>
+    <string name="char_default_name">角色 %1$d</string>
+    <string name="default_char_name">猫鱿</string>
+    <string name="label_in_use">（编辑中）</string>
+    <string name="btn_use">编辑</string>
+    <string name="btn_rename">重命名</string>
+    <string name="btn_add_char">＋ 新建角色（空白）</string>
+    <string name="btn_dup_char">＋ 复制当前角色</string>
+    <string name="dialog_char_name_title">角色名称</string>
+    <string name="copy_suffix">%1$s 的副本</string>
+    <string name="confirm_delete_char">要删除“%1$s”吗？</string>
+    <string name="toast_last_char">最后一个角色无法删除</string>
+    <string name="switch_shadow_title">显示脚下阴影</string>
+    <string name="switch_shadow_desc">宠物脚下会显示一层淡阴影。如果使用透明 PNG 插画觉得阴影碍眼，请关闭。</string>
+    <string name="label_show_chars">显示的角色</string>
+    <string name="desc_show_chars">点击可切换显示／隐藏。显示中的角色可以在屏幕上分别拖动。</string>
+    <string name="show_count">正在显示 %1$d 个角色</string>
+    <string name="key_delete">⌫ 删除时</string>
+    <string name="btn_add_delete_trigger">＋ 添加“⌫ 删除时”的反应</string>
+    <string name="notif_channel">宠物显示</string>
+    <string name="notif_text">正在显示宠物</string>
+    <string name="pick_image_title">选择图片的应用</string>
+    <string name="toast_import_failed">有些图片无法读取</string>
+    <string name="perm_ok">✓ OK</string>
+    <string name="perm_set">去设置 ›</string>
+
+    <string name="diag_title">诊断</string>
+    <string name="diag_summary">无障碍：%1$s / 事件：%2$d / 来源：%3$s / 悬浮窗：%4$s</string>
+    <string name="diag_connected">已连接</string>
+    <string name="diag_disconnected">未连接</string>
+    <string name="diag_running">运行中</string>
+    <string name="diag_stopped">未运行</string>
+    <string name="btn_test_reaction">测试打字反应</string>
+    <string name="btn_reset">重置计数</string>
+    <string name="toast_overlay_not_running">请先点③显示宠物</string>
+    <string name="diag_hint">去其他应用输入几个字，再回到这里查看计数。如果一直是 0，说明输入事件没有进来。</string>
+    <string name="btn_view_log">查看诊断日志</string>
+    <string name="log_title">诊断日志</string>
+    <string name="log_empty">还没有日志</string>
+    <string name="btn_copy">复制</string>
+    <string name="toast_copied">已复制</string>
+
+    <string name="section_motion">传感器互动</string>
+    <string name="switch_tilt_title">倾斜跟随</string>
+    <string name="switch_tilt_desc">倾斜手机时，宠物会朝重力方向轻轻滑动并歪头。</string>
+    <string name="label_haptic">边缘震动</string>
+    <string name="desc_haptic">倾斜幅度较大时的震动。</string>
+    <string name="haptic_off">关闭</string>
+    <string name="haptic_weak">弱</string>
+    <string name="haptic_medium">中</string>
+    <string name="haptic_strong">强</string>
+    <string name="btn_test_haptic">测试震动</string>
+    <string name="desc_motion_battery">仅在宠物显示且屏幕亮起时读取传感器。</string>
+    <string name="motion_unsupported">此设备没有加速度传感器。</string>
+    <string name="btn_recenter_tilt">以当前角度为基准</string>
+    <string name="toast_recentered">已更新倾斜基准</string>
+</resources>

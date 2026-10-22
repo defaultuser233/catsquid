@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">타이핑펫</string>
+    <string name="app_name">猫鱿</string>
 
-    <string name="title_settings">🐾 타이핑펫 설정</string>
+    <string name="title_settings">🐾 猫鱿 설정</string>
+
+    <string name="language_dialog_title">언어</string>
+    <string name="language_name_system">시스템</string>
+    <string name="language_name_ja">日本語</string>
+    <string name="language_name_en">English</string>
+    <string name="language_name_ko">한국어</string>
+    <string name="language_name_zh">简体中文</string>
 
     <string name="section_permission">권한 및 펫 표시</string>
     <string name="btn_overlay">① 다른 앱 위에 표시 허용</string>
@@ -49,7 +56,7 @@
     <string name="label_idle">대기 이미지</string>
     <string name="btn_add_image">+ 이미지 추가(여러 장 선택 가능)</string>
     <string name="empty_hint">아직 이미지가 없습니다</string>
-    <string name="desc_idle">입력하지 않을 때 표시됩니다. 여러 장이면 대기로 돌아올 때마다 랜덤으로 1장 선택됩니다. 비어 있으면 타이핑 중 1번째 이미지(없으면 내장 색상)를 사용합니다.</string>
+    <string name="desc_idle">입력하지 않을 때 표시됩니다. 여러 장이면 대기로 돌아올 때마다 랜덤으로 1장 선택됩니다. 비어 있으면 타이핑 중 1번째 이미지(없으면 내장 애니메이션)를 사용합니다.</string>
     <string name="label_steps">타이핑 중 이미지(순서)</string>
     <string name="desc_steps">입력 중에는 1번째 → 2번째 → 3번째… 순서로 바뀌고, 끝까지 가면 1번째로 돌아갑니다. 같은 번호에 다른 패턴을 추가하면 그 번호일 때 랜덤으로 1장 선택됩니다.</string>
     <string name="step_label">%1$d번째</string>
@@ -70,6 +77,7 @@
     <string name="label_chars">캐릭터</string>
     <string name="desc_chars">이미지(대기·타이핑 중·문자로 전환)와 내장 색상을 캐릭터별로 저장할 수 있습니다. 이미지 탭에서의 편집은 \"편집 중\"인 캐릭터에 반영됩니다.</string>
     <string name="char_default_name">캐릭터 %1$d</string>
+    <string name="default_char_name">猫鱿</string>
     <string name="label_in_use">(편집 중)</string>
     <string name="btn_use">편집</string>
     <string name="btn_rename">이름 변경</string>
@@ -92,4 +100,35 @@
     <string name="toast_import_failed">불러오지 못한 이미지가 있습니다</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_set">설정 ›</string>
+
+    <string name="diag_title">진단</string>
+    <string name="diag_summary">접근성: %1$s / 이벤트: %2$d / 출처: %3$s / 오버레이: %4$s</string>
+    <string name="diag_connected">연결됨</string>
+    <string name="diag_disconnected">연결 안 됨</string>
+    <string name="diag_running">실행 중</string>
+    <string name="diag_stopped">중지됨</string>
+    <string name="btn_test_reaction">입력 반응 테스트</string>
+    <string name="btn_reset">카운트 초기화</string>
+    <string name="toast_overlay_not_running">먼저 ③으로 펫을 표시하세요</string>
+    <string name="diag_hint">다른 앱에서 몇 글자 입력한 뒤 이 화면으로 돌아와 카운트를 확인하세요. 0이면 입력 이벤트가 오지 않고 있습니다.</string>
+    <string name="btn_view_log">진단 로그 보기</string>
+    <string name="log_title">진단 로그</string>
+    <string name="log_empty">로그가 없습니다</string>
+    <string name="btn_copy">복사</string>
+    <string name="toast_copied">복사했습니다</string>
+
+    <string name="section_motion">센서 연동</string>
+    <string name="switch_tilt_title">기울기에 따라 움직이기</string>
+    <string name="switch_tilt_desc">스마트폰을 기울이면 펫이 중력 방향으로 살짝 미끄러지고 고개를 갸웃합니다.</string>
+    <string name="label_haptic">끝에서 진동</string>
+    <string name="desc_haptic">기울기가 클 때의 진동입니다.</string>
+    <string name="haptic_off">없음</string>
+    <string name="haptic_weak">약</string>
+    <string name="haptic_medium">중</string>
+    <string name="haptic_strong">강</string>
+    <string name="btn_test_haptic">진동 테스트</string>
+    <string name="desc_motion_battery">센서는 펫이 표시 중이고 화면이 켜져 있을 때만 사용합니다.</string>
+    <string name="motion_unsupported">이 기기에는 가속도 센서가 없습니다.</string>
+    <string name="btn_recenter_tilt">현재 각도를 기준으로</string>
+    <string name="toast_recentered">기울기 기준을 갱신했습니다</string>
 </resources>

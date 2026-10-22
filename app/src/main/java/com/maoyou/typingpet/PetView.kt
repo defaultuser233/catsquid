@@ -1,14 +1,18 @@
-package com.typingpet.app
+package com.maoyou.typingpet
 
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
+import android.graphics.Movie
 import android.graphics.Paint
 import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.View
 import android.view.animation.OvershootInterpolator
 
@@ -18,7 +22,7 @@ import android.view.animation.OvershootInterpolator
  * - 入力中: 1番目→2番目→…の順に切り替え。各番号では登録された別パターンからランダムで1枚
  * - 文字で切り替え: 登録文字が入力されたら、その画像からランダムで1枚
  * 入力が IDLE_REVERT_DELAY_MS 止まると待機に戻り、次は1番目から始まる。
- * 画像が1枚もなければ内蔵イラスト(4色 x 表情)で動く。
+ * 画像が1枚もなければ内蔵のネコGIFアニメ(待機4種 / 入力3種 / 削除1種)で動く。
  */
 class PetView(context: Context) : View(context) {
 
@@ -37,14 +41,45 @@ class PetView(context: Context) : View(context) {
     var showShadow = true
         set(value) { field = value; invalidate() }
 
+    /** 設定画面のプレビューでは false にして、GIFの1枚目だけを静止表示する */
+    var animateBuiltIn = true
+
     private var idleFrames: List<Bitmap> = emptyList()
     private var steps: List<List<Bitmap>> = emptyList()
     private var triggerFrames: List<List<Bitmap>> = emptyList()
 
     private var stepIndex = -1
-    private var idleBitmap: Bitmap? = null
+    private var builtInStep = 0
     private var shown: Bitmap? = null
     private var builtInFace = 0
+
+    private var shownMovie: Movie? = null
+    private var movieStart = 0L
+    private var hasCustomImages = false
+    private var reactLogs = 0
+    private var activeState = false
+    private var lastReactAt = 0L
+    private var tiltX = 0f
+    private var tiltY = 0f
+    private var tiltAngle = 0f
+
+    /** 画像が1枚も登録されていなければ、内蔵のネコアニメで動く */
+    val usesBuiltInArt: Boolean get() = !hasCustomImages
+
+    private val idleMovies: List<Movie> = listOf(
+        R.raw.idle_1, R.raw.idle_2, R.raw.idle_3, R.raw.idle_4
+    ).mapNotNull { loadMovie(it) }
+    private val typingMovies: List<Movie> = listOf(
+        R.raw.typing_1, R.raw.typing_2, R.raw.typing_3
+    ).mapNotNull { loadMovie(it) }
+    private val deleteMovie: Movie? = loadMovie(R.raw.delete)
+
+    @Suppress("DEPRECATION")
+    private fun loadMovie(resId: Int): Movie? = try {
+        resources.openRawResource(resId).buffered().use { Movie.decodeStream(it) }
+    } catch (e: Exception) {
+        null
+    }
 
     private var scaleXAnim = 1f
     private var scaleYAnim = 1f
@@ -60,6 +95,8 @@ class PetView(context: Context) : View(context) {
         "#8FD9A8" to "#FFB26C"
     )
 
+    private val movieTintColors = listOf("#000000", "#6CA8FF", "#FF8FC7", "#8FD9A8")
+
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val cheekPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val inkPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -70,6 +107,10 @@ class PetView(context: Context) : View(context) {
     private val shadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#14000000") }
     private val highlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.parseColor("#59FFFFFF") }
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val moviePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private var tintPreset = Int.MIN_VALUE
+
+    init { goIdle() }
 
     /**
      * 画像一式を差し替える(設定変更時にOverlayServiceから呼ばれる)。
@@ -79,15 +120,37 @@ class PetView(context: Context) : View(context) {
         idleFrames = idle
         this.steps = steps.filter { it.isNotEmpty() }
         triggerFrames = triggers
+        hasCustomImages = idle.isNotEmpty() || this.steps.isNotEmpty() || triggers.any { it.isNotEmpty() }
         goIdle()
+    }
+
+    /** 端末の傾き(-1〜1)に合わせて、窓の中で少し滑らせて首をかしげる */
+    fun setTilt(nx: Float, ny: Float) {
+        // 小さめの傾きでも動きが分かるようにゲインをかけ、強い傾きで端に届くようにする
+        val vx = (nx * 1.6f).coerceIn(-1f, 1f)
+        val vy = (ny * 1.6f).coerceIn(-1f, 1f)
+        val maxShift = if (hasCustomImages) 0.05f else 0.10f
+        val maxAngle = if (hasCustomImages) 5f else 10f
+        tiltX = vx * width * maxShift
+        tiltY = vy * height * maxShift
+        tiltAngle = vx * maxAngle
+        invalidate()
     }
 
     private fun goIdle() {
         revertHandler.removeCallbacks(revertRunnable)
+        activeState = false
         stepIndex = -1
+        builtInStep = -1
         builtInFace = 0
-        idleBitmap = idleFrames.randomOrNull() ?: steps.firstOrNull()?.randomOrNull()
-        shown = idleBitmap
+        val idleBmp = idleFrames.randomOrNull() ?: steps.firstOrNull()?.randomOrNull()
+        if (idleBmp != null) {
+            shown = idleBmp
+            shownMovie = null
+        } else {
+            shown = null
+            showMovie(idleMovies.randomOrNull())
+        }
         invalidate()
     }
 
@@ -96,19 +159,68 @@ class PetView(context: Context) : View(context) {
      */
     fun react(trigger: Int = -1) {
         revertHandler.removeCallbacks(revertRunnable)
+        activeState = true
+        lastReactAt = SystemClock.uptimeMillis()
 
         if (steps.isNotEmpty()) stepIndex = (stepIndex + 1) % steps.size
+        builtInStep = (builtInStep + 1) % maxOf(typingMovies.size, 1)
         builtInFace = (builtInFace % 3) + 1 // 内蔵イラストは入力中 表情1〜3を循環
 
         val triggerBmp = if (trigger >= 0) triggerFrames.getOrNull(trigger)?.randomOrNull() else null
         val stepBmp = steps.getOrNull(stepIndex)?.randomOrNull()
+        val bmp = triggerBmp ?: stepBmp
 
-        shown = triggerBmp ?: stepBmp ?: idleBitmap
+        if (bmp != null) {
+            shown = bmp
+            shownMovie = null
+        } else {
+            shown = null
+            showMovie(typingMovies.getOrNull(builtInStep))
+        }
+        if (reactLogs < 10) {
+            reactLogs++
+            DiagLog.log(
+                context,
+                "PetView.react trigger=$trigger step=$builtInStep typing=${typingMovies.size} idle=${idleMovies.size} bmp=${bmp != null} movie=${shownMovie != null}"
+            )
+        }
         invalidate()
 
         revertHandler.postDelayed(revertRunnable, IDLE_REVERT_DELAY_MS)
 
         if (shakeLevel > 0) playBounce()
+    }
+
+    /** 「⌫ 消したとき」の内蔵アニメ。画像を登録していない時だけ使う */
+    fun reactDelete() {
+        val movie = deleteMovie
+        if (!usesBuiltInArt || movie == null) {
+            react()
+            return
+        }
+        revertHandler.removeCallbacks(revertRunnable)
+        activeState = true
+        lastReactAt = SystemClock.uptimeMillis()
+        shown = null
+        shownMovie = movie
+        movieStart = SystemClock.uptimeMillis()
+        movie.setTime(0)
+        invalidate()
+        revertHandler.postDelayed(revertRunnable, IDLE_REVERT_DELAY_MS)
+        if (shakeLevel > 0) playBounce()
+    }
+
+    /** 同じアニメが表示中なら最初から再生し直さない(連打で固まって見えないように) */
+    private fun showMovie(movie: Movie?) {
+        if (movie == null) {
+            shownMovie = null
+            return
+        }
+        if (shownMovie !== movie) {
+            shownMovie = movie
+            movieStart = SystemClock.uptimeMillis()
+            movie.setTime(0)
+        }
     }
 
     /** 縦に潰れて横に伸び、オーバーシュートしながら戻る「もちもち」アニメ */
@@ -140,16 +252,69 @@ class PetView(context: Context) : View(context) {
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        if (activeState && SystemClock.uptimeMillis() - lastReactAt > IDLE_REVERT_DELAY_MS + 500) {
+            activeState = false
+            revertHandler.post(revertRunnable)
+        }
         val cx = width / 2f
         val cy = height / 2f
 
         canvas.save()
+        canvas.translate(tiltX, tiltY)
+        canvas.rotate(tiltAngle, cx, cy)
         canvas.scale(scaleXAnim, scaleYAnim, cx, cy + height * 0.16f)
 
         val bmp = shown
-        if (bmp != null) drawBitmapFrame(canvas, cx, cy, bmp) else drawBuiltIn(canvas, cx, cy)
+        val movie = shownMovie
+        if (bmp != null) drawBitmapFrame(canvas, cx, cy, bmp)
+        else if (movie != null) drawMovieFrame(canvas, cx, cy, movie)
+        else drawBuiltIn(canvas, cx, cy)
 
         canvas.restore()
+
+        if (movie != null && animateBuiltIn) postInvalidateOnAnimation()
+    }
+
+    private fun drawMovieFrame(canvas: Canvas, cx: Float, cy: Float, movie: Movie) {
+        val mw = movie.width().coerceAtLeast(1)
+        val mh = movie.height().coerceAtLeast(1)
+        val scale = minOf(width, height).toFloat() / maxOf(mw, mh)
+        val w = mw * scale
+        val h = mh * scale
+        if (showShadow) canvas.drawOval(RectF(cx - w * 0.4f, cy + h * 0.42f, cx + w * 0.4f, cy + h * 0.5f), shadowPaint)
+
+        val duration = movie.duration().coerceAtLeast(1)
+        movie.setTime(if (animateBuiltIn) ((SystemClock.uptimeMillis() - movieStart) % duration).toInt() else 0)
+
+        canvas.save()
+        canvas.translate(cx - w / 2f, cy - h / 2f)
+        canvas.scale(scale, scale)
+        movie.draw(canvas, 0f, 0f, tintedMoviePaint())
+        canvas.restore()
+    }
+
+    /** 黒いネコをプリセットカラーに染める。白(目)は白のまま残す */
+    private fun tintedMoviePaint(): Paint {
+        if (tintPreset == preset) return moviePaint
+        tintPreset = preset
+        val base = Color.parseColor(movieTintColors[preset.coerceIn(0, movieTintColors.size - 1)])
+        val r = Color.red(base) / 255f
+        val g = Color.green(base) / 255f
+        val b = Color.blue(base) / 255f
+        val lr = 0.299f
+        val lg = 0.587f
+        val lb = 0.114f
+        moviePaint.colorFilter = ColorMatrixColorFilter(
+            ColorMatrix(
+                floatArrayOf(
+                    lr * (1 - r), lg * (1 - r), lb * (1 - r), 0f, r * 255f,
+                    lr * (1 - g), lg * (1 - g), lb * (1 - g), 0f, g * 255f,
+                    lr * (1 - b), lg * (1 - b), lb * (1 - b), 0f, b * 255f,
+                    0f, 0f, 0f, 1f, 0f
+                )
+            )
+        )
+        return moviePaint
     }
 
     private fun drawBitmapFrame(canvas: Canvas, cx: Float, cy: Float, bmp: Bitmap) {
