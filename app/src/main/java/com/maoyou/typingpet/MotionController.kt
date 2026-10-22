@@ -20,22 +20,29 @@ import kotlin.math.hypot
  */
 class MotionController(
     private val context: Context,
-    private val onTilt: (Float, Float) -> Unit
+    private val onTilt: (Float, Float) -> Unit,
+    private val onSway: (Float, Float) -> Unit
 ) : SensorEventListener {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     private val accelerometer = sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyroscope = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+
+    /** 重力を除いた加速度(端末を動かしたときの揺れ)。無い端末では加速度から推定する */
+    private val linearSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
     private val handler = Handler(Looper.getMainLooper())
     private val gravity = FloatArray(3)
+    private val gravitySlow = FloatArray(3)
     private val baseline = FloatArray(3)
     private val gyroRate = FloatArray(3)
+    private val linear = FloatArray(3)
 
     private var started = false
     private var hasGravity = false
     private var hasBaseline = false
     private var hasOutput = false
     private var tiltLogs = 0
+    private var swayLogs = 0
     private var lastAccelAt = 0L
     private var outX = 0f
     private var outY = 0f
@@ -47,12 +54,16 @@ class MotionController(
         hasBaseline = false
         hasOutput = false
         tiltLogs = 0
+        swayLogs = 0
         lastAccelAt = 0L
         sensorManager?.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME, handler)
         gyroscope?.let {
             sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME, handler)
         }
-        DiagLog.log(context, "motion start gyro=${gyroscope != null}")
+        linearSensor?.let {
+            sensorManager?.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME, handler)
+        }
+        DiagLog.log(context, "motion start gyro=${gyroscope != null} linear=${linearSensor != null}")
     }
 
     /** 今の持ち方を基準に戻す。次にセンサーが来た位置がニュートラルになる */
@@ -72,6 +83,7 @@ class MotionController(
         if (!started) return
         when (event.sensor.type) {
             Sensor.TYPE_GYROSCOPE -> onGyroscope(event)
+            Sensor.TYPE_LINEAR_ACCELERATION -> onLinear(event)
             Sensor.TYPE_ACCELEROMETER -> onAccelerometer(event)
         }
     }
@@ -84,14 +96,44 @@ class MotionController(
         }
     }
 
+    /** 端末を動かした勢い。ペットを反対方向へ揺らすのに使う */
+    private fun onLinear(event: SensorEvent) {
+        val alpha = 0.45f
+        for (i in 0..1) {
+            linear[i] = alpha * linear[i] + (1f - alpha) * event.values[i]
+        }
+        emitSway()
+    }
+
+    private fun emitSway() {
+        if (!hasBaseline) return
+        val mag = hypot(linear[0], linear[1])
+        // 手ぶれ程度は無視する
+        if (mag < 0.5f) {
+            onSway(0f, 0f)
+            return
+        }
+        if (swayLogs < 5) {
+            swayLogs++
+            DiagLog.log(context, "sway ax=${linear[0]} ay=${linear[1]} mag=$mag")
+        }
+        onSway(linear[0].coerceIn(-25f, 25f), linear[1].coerceIn(-25f, 25f))
+    }
+
     private fun onAccelerometer(event: SensorEvent) {
         if (!hasGravity) {
             event.values.copyInto(gravity)
+            event.values.copyInto(gravitySlow)
             hasGravity = true
         } else {
             val alpha = 0.8f
             for (i in 0..2) {
                 gravity[i] = alpha * gravity[i] + (1f - alpha) * event.values[i]
+            }
+            // 揺れ検出用の重力はゆっくり追従させ、加速度を残す
+            val slow = 0.95f
+            for (i in 0..2) {
+                gravitySlow[i] = slow * gravitySlow[i] + (1f - slow) * event.values[i]
             }
         }
 
@@ -136,6 +178,14 @@ class MotionController(
         outX = px + (ax - px) * correction
         outY = py + (ay - py) * correction
         onTilt(outX, outY)
+
+        // 線形加速度センサーが無い端末では、加速度から重力を引いて揺れを作る
+        if (linearSensor == null) {
+            val alpha = 0.3f
+            linear[0] = alpha * linear[0] + (1f - alpha) * (event.values[0] - gravitySlow[0])
+            linear[1] = alpha * linear[1] + (1f - alpha) * (event.values[1] - gravitySlow[1])
+            emitSway()
+        }
 
         val magnitude = hypot(outX, outY)
         if (tiltLogs < 5 && magnitude > 0.15f) {

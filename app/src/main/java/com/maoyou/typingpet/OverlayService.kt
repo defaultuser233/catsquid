@@ -132,6 +132,9 @@ class OverlayService : Service() {
                 lastTiltY = ny
                 pets.values.forEach { it.view.setTilt(nx, ny) }
                 updateWindowPositions()
+            },
+            onSway = { ax, ay ->
+                pets.values.forEach { it.view.setSway(ax, ay) }
             }
         )
         val filter = IntentFilter().apply {
@@ -157,7 +160,10 @@ class OverlayService : Service() {
             motion.stop()
             lastTiltX = 0f
             lastTiltY = 0f
-            pets.values.forEach { it.view.setTilt(0f, 0f) }
+            pets.values.forEach {
+                it.view.setTilt(0f, 0f)
+                it.view.setSway(0f, 0f)
+            }
             updateWindowPositions(force = true)
         }
     }

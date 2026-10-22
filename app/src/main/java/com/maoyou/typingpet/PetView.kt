@@ -69,7 +69,12 @@ class PetView(context: Context) : View(context) {
     private val tiltX = TiltSpring()
     private val tiltY = TiltSpring()
     private val tiltAngle = TiltSpring()
+
+    /** 端末を動かした勢いで揺れる分。傾きとは別に、少し弾むバネで戻る */
+    private val swayX = TiltSpring(stiffness = 144f, damping = 21.6f, settleValue = 0.1f, settleVelocity = 1.2f)
+    private val swayY = TiltSpring(stiffness = 144f, damping = 21.6f, settleValue = 0.1f, settleVelocity = 1.2f)
     private var lastTiltFrameAt = 0L
+    private var lastSwayAt = 0L
 
     /** 画像が1枚も登録されていなければ、内蔵のネコアニメで動く */
     val usesBuiltInArt: Boolean get() = !hasCustomImages
@@ -156,6 +161,24 @@ class PetView(context: Context) : View(context) {
         invalidate()
     }
 
+    /**
+     * 端末を動かした勢い(m/s²)。位移ではなく「揺れの速さ」に加えることで、
+     * 加速度で振り子を押す動きになる(押し終わっても慣性で揺れて戻る)。
+     */
+    fun setSway(ax: Float, ay: Float) {
+        val now = SystemClock.uptimeMillis()
+        val dt = if (lastSwayAt == 0L) 0.02f
+        else ((now - lastSwayAt) / 1000f).coerceIn(0.005f, 0.05f)
+        lastSwayAt = now
+
+        val maxShift = if (hasCustomImages) 0.08f else 0.12f
+        swayX.limit = width * maxShift
+        swayY.limit = height * maxShift * 0.8f
+        swayX.kick(-ax * width * 5.0f * dt)
+        swayY.kick(-ay * height * 3.5f * dt)
+        invalidate()
+    }
+
     /** 傾きはバネで追従させ、センサーの更新間隔を描画フレームで埋める */
     private fun stepTilt(): Boolean {
         val now = SystemClock.uptimeMillis()
@@ -165,24 +188,35 @@ class PetView(context: Context) : View(context) {
         val movingX = tiltX.step(dt)
         val movingY = tiltY.step(dt)
         val movingAngle = tiltAngle.step(dt)
-        val moving = movingX || movingY || movingAngle
+        val movingSwayX = swayX.step(dt)
+        val movingSwayY = swayY.step(dt)
+        val moving = movingX || movingY || movingAngle || movingSwayX || movingSwayY
         if (!moving) lastTiltFrameAt = 0L
         return moving
     }
 
-    private class TiltSpring {
+    private class TiltSpring(
+        private val stiffness: Float = 256f,
+        private val damping: Float = 25.6f,
+        private val settleValue: Float = 0.08f,
+        private val settleVelocity: Float = 0.8f
+    ) {
         var target = 0f
         var value = 0f
+        var limit = Float.MAX_VALUE
         private var velocity = 0f
+
+        /** 外から勢いを加える(加速度 × 時間) */
+        fun kick(deltaVelocity: Float) {
+            velocity += deltaVelocity
+        }
 
         /** 減衰付きバネを1フレーム進める。まだ動いていれば true */
         fun step(dt: Float): Boolean {
-            val stiffness = 256f   // 固有角周波数 16rad/s
-            val damping = 25.6f    // 減衰比 0.8(わずかに行き過ぎる程度)
             val accel = (target - value) * stiffness - velocity * damping
             velocity += accel * dt
-            value += velocity * dt
-            if (abs(target - value) < 0.08f && abs(velocity) < 0.8f) {
+            value = (value + velocity * dt).coerceIn(-limit, limit)
+            if (abs(target - value) < settleValue && abs(velocity) < settleVelocity) {
                 value = target
                 velocity = 0f
                 return false
@@ -349,7 +383,7 @@ class PetView(context: Context) : View(context) {
         drawShadow(canvas, cx, cy)
 
         canvas.save()
-        canvas.translate(tiltX.value, tiltY.value)
+        canvas.translate(tiltX.value + swayX.value, tiltY.value + swayY.value)
         canvas.rotate(tiltAngle.value, cx, cy)
         canvas.scale(scaleXAnim, scaleYAnim, cx, cy + height * 0.16f)
 
@@ -368,7 +402,7 @@ class PetView(context: Context) : View(context) {
     private fun drawShadow(canvas: Canvas, cx: Float, cy: Float) {
         if (!showShadow) return
         canvas.save()
-        canvas.translate(tiltX.value, tiltY.value)
+        canvas.translate(tiltX.value + swayX.value, tiltY.value + swayY.value)
         canvas.scale(scaleXAnim, scaleYAnim, cx, cy + height * 0.16f)
 
         val bmp = shown
