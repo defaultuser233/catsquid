@@ -174,8 +174,8 @@ class PetView(context: Context) : View(context) {
         val maxShift = if (hasCustomImages) 0.08f else 0.12f
         swayX.limit = width * maxShift
         swayY.limit = height * maxShift * 0.8f
-        swayX.kick(-ax * width * 5.0f * dt)
-        swayY.kick(-ay * height * 3.5f * dt)
+        swayX.kick(-ax * width * 12.0f * dt)
+        swayY.kick(-ay * height * 8.0f * dt)
         invalidate()
     }
 

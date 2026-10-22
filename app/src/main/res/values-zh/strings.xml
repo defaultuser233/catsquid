@@ -99,6 +99,10 @@
     <string name="toast_import_failed">有些图片无法读取</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_connecting">连接中…</string>
+    <string name="perm_disconnected">已断开</string>
+    <string name="notif_channel_accessibility">无障碍</string>
+    <string name="notif_accessibility_off_title">无障碍服务已关闭</string>
+    <string name="notif_accessibility_off_text">点此重新开启</string>
     <string name="perm_set">去设置 ›</string>
 
     <string name="diag_title">诊断</string>

@@ -100,6 +100,10 @@
     <string name="toast_import_failed">불러오지 못한 이미지가 있습니다</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_connecting">연결 중…</string>
+    <string name="perm_disconnected">끊김</string>
+    <string name="notif_channel_accessibility">접근성</string>
+    <string name="notif_accessibility_off_title">접근성 서비스가 꺼졌습니다</string>
+    <string name="notif_accessibility_off_text">탭하여 다시 켜세요</string>
     <string name="perm_set">설정 ›</string>
 
     <string name="diag_title">진단</string>

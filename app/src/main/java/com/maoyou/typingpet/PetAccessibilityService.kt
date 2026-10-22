@@ -1,9 +1,15 @@
 package com.maoyou.typingpet
 
 import android.accessibilityservice.AccessibilityService
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.inputmethod.InputMethodManager
@@ -22,13 +28,18 @@ class PetAccessibilityService : AccessibilityService() {
     private var lastImeReactAt = 0L
     private val seenImeEvents = HashSet<String>()
 
-    /** イベントを送ってくる入力法。直近にイベントがある間はウィンドウ走査を止める */
+    /** 直近にイベントを送ってくる入力法。直近にイベントがある間はウィンドウ走査を止める */
     private var lastEventImePkg = ""
     private var lastEventImeAt = 0L
     private var imeWatcher: ImeWindowWatcher? = null
+    private var lastDisabledNotifyAt = 0L
 
     companion object {
         @Volatile var connected = false
+            private set
+
+        /** 一度つながったあとで切られた状態(設定画面で戻す必要がある) */
+        @Volatile var systemClosed = false
             private set
         @Volatile var eventCount = 0
             private set
@@ -62,6 +73,7 @@ class PetAccessibilityService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         connected = true
+        systemClosed = false
         inst = this
         DiagLog.log(this, "onServiceConnected pid=${android.os.Process.myPid()}")
         DiagLog.log(this, "ime packages=${enabledImePackages().joinToString()}")
@@ -271,15 +283,60 @@ class PetAccessibilityService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        val secure = secureStillEnabled()
         DiagLog.log(
             this,
-            "onUnbind pid=${android.os.Process.myPid()} secureEnabled=${secureStillEnabled()} intent=$intent"
+            "onUnbind pid=${android.os.Process.myPid()} secureEnabled=$secure intent=$intent"
         )
         connected = false
+        systemClosed = true
+        notifyDisabled()
         imeWatcher?.stop()
         imeWatcher = null
         if (inst === this) inst = null
         return super.onUnbind(intent)
+    }
+
+    /** オーバーレイ表示中に切られたら、戻し忘れないよう通知する(10分に1回まで) */
+    private fun notifyDisabled() {
+        if (OverlayService.instance == null) return
+        val now = SystemClock.uptimeMillis()
+        if (lastDisabledNotifyAt != 0L && now - lastDisabledNotifyAt < 10 * 60_000L) return
+        lastDisabledNotifyAt = now
+        try {
+            val channelId = "accessibility"
+            val nm = getSystemService(NotificationManager::class.java) ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                nm.createNotificationChannel(
+                    NotificationChannel(
+                        channelId,
+                        getString(R.string.notif_channel_accessibility),
+                        NotificationManager.IMPORTANCE_DEFAULT
+                    )
+                )
+            }
+            val open = PendingIntent.getActivity(
+                this, 1,
+                Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS),
+                PendingIntent.FLAG_IMMUTABLE
+            )
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(this, channelId)
+            } else {
+                @Suppress("DEPRECATION") Notification.Builder(this)
+            }
+            nm.notify(
+                2,
+                builder
+                    .setSmallIcon(R.drawable.ic_notif_paw)
+                    .setContentTitle(getString(R.string.notif_accessibility_off_title))
+                    .setContentText(getString(R.string.notif_accessibility_off_text))
+                    .setContentIntent(open)
+                    .setAutoCancel(true)
+                    .build()
+            )
+        } catch (_: Throwable) {
+        }
     }
 
     override fun onDestroy() {
@@ -293,9 +350,9 @@ class PetAccessibilityService : AccessibilityService() {
 
     /** 解绑されたとき、設定上はまだ有効か(ROM が勝手に切ったのか、プロセスが殺されたのか) */
     private fun secureStillEnabled(): Boolean {
-        val list = android.provider.Settings.Secure.getString(
+        val list = Settings.Secure.getString(
             contentResolver,
-            android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
         ) ?: return false
         return list.split(':').any {
             it.startsWith("$packageName/", ignoreCase = true) &&

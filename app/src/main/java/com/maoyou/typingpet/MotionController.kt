@@ -109,7 +109,7 @@ class MotionController(
         if (!hasBaseline) return
         val mag = hypot(linear[0], linear[1])
         // 手ぶれ程度は無視する
-        if (mag < 0.5f) {
+        if (mag < 0.35f) {
             onSway(0f, 0f)
             return
         }

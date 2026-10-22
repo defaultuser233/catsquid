@@ -100,6 +100,10 @@
     <string name="toast_import_failed">読み込めなかった画像があります</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_connecting">接続中…</string>
+    <string name="perm_disconnected">切断</string>
+    <string name="notif_channel_accessibility">アクセシビリティ</string>
+    <string name="notif_accessibility_off_title">アクセシビリティがオフになりました</string>
+    <string name="notif_accessibility_off_text">タップして再度オンにしてください</string>
     <string name="perm_set">設定する ›</string>
 
     <string name="diag_title">診断</string>

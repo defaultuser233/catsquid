@@ -1,10 +1,12 @@
 package com.maoyou.typingpet
 
+import android.Manifest
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.content.res.ColorStateList
@@ -15,6 +17,7 @@ import android.graphics.drawable.RippleDrawable
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -260,6 +263,7 @@ class MainActivity : Activity() {
         accessibilityPending(),
         Settings.canDrawOverlays(this),
         PetAccessibilityService.connected,
+        PetAccessibilityService.systemClosed,
         OverlayService.isRunning
     ).joinToString("|")
 
@@ -269,6 +273,13 @@ class MainActivity : Activity() {
             "perm open=${Settings.canDrawOverlays(this)} connected=${PetAccessibilityService.connected} " +
                 "manager=${managerHasUs()} secure=${secureListHasUs()}"
         )
+    }
+
+    /** 通知の許可(Android 13+)。前面サービスの通知と「切られた」通知に必要 */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < 33) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+        requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 100)
     }
 
     private fun renderPerm() {
@@ -285,7 +296,8 @@ class MainActivity : Activity() {
             addView(permRow(
                 getString(R.string.btn_accessibility),
                 isAccessibilityOk(),
-                accessibilityPending()
+                accessibilityPending(),
+                PetAccessibilityService.systemClosed
             ) {
                 accessibilityLaunchAt = SystemClock.uptimeMillis()
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
@@ -298,6 +310,7 @@ class MainActivity : Activity() {
                 text = getString(R.string.btn_show_pet)
                 setOnClickListener {
                     if (Settings.canDrawOverlays(this@MainActivity)) {
+                        requestNotificationPermission()
                         startService(Intent(this@MainActivity, OverlayService::class.java))
                     }
                 }
@@ -418,7 +431,7 @@ class MainActivity : Activity() {
     }
 
     /** 権限1つ分の行。許可済みなら緑の「✓ OK」、まだなら「設定する ›」 */
-    private fun permRow(label: String, ok: Boolean, pending: Boolean = false, onClick: () -> Unit): View {
+    private fun permRow(label: String, ok: Boolean, pending: Boolean = false, disconnected: Boolean = false, onClick: () -> Unit): View {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -439,6 +452,7 @@ class MainActivity : Activity() {
             when {
                 ok -> pill(getString(R.string.perm_ok), Color.parseColor("#2E7D4F"), Color.parseColor("#E6F4EC"))
                 pending -> pill(getString(R.string.perm_connecting), Color.parseColor("#6B6B6B"), Color.parseColor("#EFEFEF"))
+                disconnected -> pill(getString(R.string.perm_disconnected), Color.parseColor("#8A5A00"), Color.parseColor("#FFF3DC"))
                 else -> TextView(this).apply {
                     text = getString(R.string.perm_set)
                     textSize = 14f
