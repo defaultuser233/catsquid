@@ -259,6 +259,8 @@ class PetView(context: Context) : View(context) {
         val cx = width / 2f
         val cy = height / 2f
 
+        drawShadow(canvas, cx, cy)
+
         canvas.save()
         canvas.translate(tiltX, tiltY)
         canvas.rotate(tiltAngle, cx, cy)
@@ -275,13 +277,41 @@ class PetView(context: Context) : View(context) {
         if (movie != null && animateBuiltIn) postInvalidateOnAnimation()
     }
 
+    /** 影だけは傾きの回転をかけず、ペットの移動と弾みにだけ合わせる */
+    private fun drawShadow(canvas: Canvas, cx: Float, cy: Float) {
+        if (!showShadow) return
+        canvas.save()
+        canvas.translate(tiltX, tiltY)
+        canvas.scale(scaleXAnim, scaleYAnim, cx, cy + height * 0.16f)
+
+        val bmp = shown
+        val movie = shownMovie
+        if (bmp != null) {
+            val size = minOf(width, height).toFloat()
+            val scale = size / maxOf(bmp.width, bmp.height)
+            val w = bmp.width * scale
+            val h = bmp.height * scale
+            canvas.drawOval(RectF(cx - w * 0.4f, cy + h * 0.42f, cx + w * 0.4f, cy + h * 0.5f), shadowPaint)
+        } else if (movie != null) {
+            val mw = movie.width().coerceAtLeast(1)
+            val mh = movie.height().coerceAtLeast(1)
+            val scale = minOf(width, height).toFloat() / maxOf(mw, mh)
+            val w = mw * scale
+            val h = mh * scale
+            canvas.drawOval(RectF(cx - w * 0.4f, cy + h * 0.42f, cx + w * 0.4f, cy + h * 0.5f), shadowPaint)
+        } else {
+            val r = minOf(width, height) * 0.34f
+            canvas.drawOval(RectF(cx - r * 0.8f, cy + r * 1.05f, cx + r * 0.8f, cy + r * 1.3f), shadowPaint)
+        }
+        canvas.restore()
+    }
+
     private fun drawMovieFrame(canvas: Canvas, cx: Float, cy: Float, movie: Movie) {
         val mw = movie.width().coerceAtLeast(1)
         val mh = movie.height().coerceAtLeast(1)
         val scale = minOf(width, height).toFloat() / maxOf(mw, mh)
         val w = mw * scale
         val h = mh * scale
-        if (showShadow) canvas.drawOval(RectF(cx - w * 0.4f, cy + h * 0.42f, cx + w * 0.4f, cy + h * 0.5f), shadowPaint)
 
         val duration = movie.duration().coerceAtLeast(1)
         movie.setTime(if (animateBuiltIn) ((SystemClock.uptimeMillis() - movieStart) % duration).toInt() else 0)
@@ -322,7 +352,6 @@ class PetView(context: Context) : View(context) {
         val scale = size / maxOf(bmp.width, bmp.height)
         val w = bmp.width * scale
         val h = bmp.height * scale
-        if (showShadow) canvas.drawOval(RectF(cx - w * 0.4f, cy + h * 0.42f, cx + w * 0.4f, cy + h * 0.5f), shadowPaint)
         canvas.drawBitmap(bmp, null, RectF(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f), bitmapPaint)
     }
 
@@ -331,8 +360,6 @@ class PetView(context: Context) : View(context) {
         val colors = presetColors[preset.coerceIn(0, presetColors.size - 1)]
         bodyPaint.color = Color.parseColor(colors.first)
         cheekPaint.color = Color.parseColor(colors.second)
-
-        if (showShadow) canvas.drawOval(RectF(cx - r * 0.8f, cy + r * 1.05f, cx + r * 0.8f, cy + r * 1.3f), shadowPaint)
 
         canvas.drawCircle(cx - r * 0.75f, cy - r * 0.85f, r * 0.28f, bodyPaint)
         canvas.drawCircle(cx + r * 0.75f, cy - r * 0.85f, r * 0.28f, bodyPaint)
