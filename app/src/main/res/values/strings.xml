@@ -86,6 +86,8 @@
     <string name="dialog_char_name_title">キャラの名前</string>
     <string name="copy_suffix">%1$sのコピー</string>
     <string name="confirm_delete_char">「%1$s」を削除しますか？</string>
+    <string name="confirm_delete_item">この項目を削除しますか？</string>
+    <string name="confirm_delete_image">この画像を削除しますか？</string>
     <string name="toast_last_char">最後の1体は削除できません</string>
     <string name="switch_shadow_title">足元の影を表示</string>
     <string name="switch_shadow_desc">ペットの足元に出る薄い影です。透過PNGのイラストで影が気になる場合はOFFにしてください。</string>
@@ -117,12 +119,17 @@
     <string name="btn_reset">カウントをリセット</string>
     <string name="toast_overlay_not_running">先に③でペットを表示してください</string>
     <string name="diag_hint">他のアプリで数文字入力してから、この画面に戻ってカウントを確認してください。0のままなら入力イベントが届いていません。</string>
+    <string name="diag_ime">入力法: %1$s</string>
+    <string name="diag_last_event">最近のイベント: %1$s</string>
+    <string name="diag_last_match">最近の照合: %1$s</string>
+    <string name="diag_foreground">前面サービス: %1$s</string>
     <string name="btn_view_log">診断ログを見る</string>
     <string name="btn_clear_log">ログを消去</string>
     <string name="toast_log_cleared">ログを消去しました</string>
     <string name="log_title">診断ログ</string>
     <string name="log_empty">ログはまだありません</string>
     <string name="btn_copy">コピー</string>
+    <string name="btn_share">共有</string>
     <string name="toast_copied">コピーしました</string>
 
     <string name="section_motion">センサー連動</string>

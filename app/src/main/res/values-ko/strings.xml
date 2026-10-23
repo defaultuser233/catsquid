@@ -86,6 +86,8 @@
     <string name="dialog_char_name_title">캐릭터 이름</string>
     <string name="copy_suffix">%1$s 복사본</string>
     <string name="confirm_delete_char">「%1$s」을(를) 삭제할까요?</string>
+    <string name="confirm_delete_item">이 항목을 삭제할까요?</string>
+    <string name="confirm_delete_image">이 이미지를 삭제할까요?</string>
     <string name="toast_last_char">마지막 캐릭터는 삭제할 수 없습니다</string>
     <string name="switch_shadow_title">발밑 그림자 표시</string>
     <string name="switch_shadow_desc">펫 발밑에 생기는 옅은 그림자입니다. 투명 PNG 이미지에서 그림자가 신경 쓰이면 OFF로 해주세요.</string>
@@ -117,12 +119,17 @@
     <string name="btn_reset">카운트 초기화</string>
     <string name="toast_overlay_not_running">먼저 ③으로 펫을 표시하세요</string>
     <string name="diag_hint">다른 앱에서 몇 글자 입력한 뒤 이 화면으로 돌아와 카운트를 확인하세요. 0이면 입력 이벤트가 오지 않고 있습니다.</string>
+    <string name="diag_ime">입력기: %1$s</string>
+    <string name="diag_last_event">최근 이벤트: %1$s</string>
+    <string name="diag_last_match">최근 매칭: %1$s</string>
+    <string name="diag_foreground">포그라운드 서비스: %1$s</string>
     <string name="btn_view_log">진단 로그 보기</string>
     <string name="btn_clear_log">로그 지우기</string>
     <string name="toast_log_cleared">로그를 지웠습니다</string>
     <string name="log_title">진단 로그</string>
     <string name="log_empty">로그가 없습니다</string>
     <string name="btn_copy">복사</string>
+    <string name="btn_share">공유</string>
     <string name="toast_copied">복사했습니다</string>
 
     <string name="section_motion">센서 연동</string>

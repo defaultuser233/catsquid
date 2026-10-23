@@ -56,11 +56,14 @@ class PetAccessibilityService : AccessibilityService() {
             private set
         @Volatile var lastEventType = 0
             private set
+        @Volatile var lastImePackage = "-"
+            private set
 
         fun resetStats() {
             eventCount = 0
             lastPackage = "-"
             lastEventType = 0
+            lastImePackage = "-"
         }
 
         @Volatile private var inst: PetAccessibilityService? = null
@@ -207,6 +210,7 @@ class PetAccessibilityService : AccessibilityService() {
         val now = SystemClock.uptimeMillis()
         lastEventImePkg = pkg
         lastEventImeAt = now
+        lastImePackage = pkg
 
         if (OverlayService.instance == null) return
 
@@ -233,6 +237,7 @@ class PetAccessibilityService : AccessibilityService() {
         if (OverlayService.instance == null) return
         val now = SystemClock.uptimeMillis()
         if (pkg == lastEventImePkg && now - lastEventImeAt < 2000L) return
+        lastImePackage = pkg
         if (imeLogs < 5) {
             imeLogs++
             DiagLog.log(this, "ime poll key pkg=$pkg")

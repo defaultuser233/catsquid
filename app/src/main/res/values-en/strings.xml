@@ -86,6 +86,8 @@
     <string name="dialog_char_name_title">Character name</string>
     <string name="copy_suffix">%1$s copy</string>
     <string name="confirm_delete_char">Delete \"%1$s\"?</string>
+    <string name="confirm_delete_item">Delete this item?</string>
+    <string name="confirm_delete_image">Delete this image?</string>
     <string name="toast_last_char">You can\'t delete the last character</string>
     <string name="switch_shadow_title">Show shadow</string>
     <string name="switch_shadow_desc">The faint shadow under the pet. Turn it off if it looks odd with your transparent images.</string>
@@ -117,12 +119,17 @@
     <string name="btn_reset">Reset count</string>
     <string name="toast_overlay_not_running">Show the pet first (③)</string>
     <string name="diag_hint">Type a few characters in another app, then return here and check the count. If it stays 0, no text events are arriving.</string>
+    <string name="diag_ime">IME: %1$s</string>
+    <string name="diag_last_event">Last event: %1$s</string>
+    <string name="diag_last_match">Last match: %1$s</string>
+    <string name="diag_foreground">Foreground service: %1$s</string>
     <string name="btn_view_log">View diagnostic log</string>
     <string name="btn_clear_log">Clear log</string>
     <string name="toast_log_cleared">Log cleared</string>
     <string name="log_title">Diagnostic log</string>
     <string name="log_empty">No log yet</string>
     <string name="btn_copy">Copy</string>
+    <string name="btn_share">Share</string>
     <string name="toast_copied">Copied</string>
 
     <string name="section_motion">Motion</string>

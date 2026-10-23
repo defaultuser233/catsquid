@@ -23,10 +23,13 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
 import android.util.LruCache
+import android.text.Editable
 import android.text.TextUtils
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
 import android.widget.EditText
@@ -48,6 +51,9 @@ import androidx.core.graphics.drawable.IconCompat
 class MainActivity : Activity() {
 
     private var currentTab = 0 // 0:基本 1:プリセット 2:イラスト
+    private var mainScroll: ScrollView? = null
+    private val tabScrollY = IntArray(3)
+    private var diagExpanded = false
 
     private val languageCodes = arrayOf(Prefs.LANG_SYSTEM, "ja", "en", "ko", "zh")
 
@@ -92,6 +98,9 @@ class MainActivity : Activity() {
             return
         }
 
+        currentTab = (savedInstanceState?.getInt("currentTab", 0) ?: 0).coerceIn(0, 2)
+        tabScrollY[currentTab] = savedInstanceState?.getInt("scrollY", 0) ?: 0
+        diagExpanded = savedInstanceState?.getBoolean("diagExpanded", false) ?: false
         buildUi()
     }
 
@@ -216,10 +225,12 @@ class MainActivity : Activity() {
             setBackgroundColor(bg)
             addView(root)
         }
+        mainScroll = scroll
         setContentView(scroll)
 
         renderAll()
         restyle(root)
+        scroll.post { scroll.scrollTo(0, tabScrollY[currentTab]) }
     }
 
     // ---------- 権限(許可済みかどうかを1行ずつ表示) ----------
@@ -304,7 +315,6 @@ class MainActivity : Activity() {
                 startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
             })
             addView(divider())
-            addView(diagnosticsView())
             addView(spacer(12))
             addView(Button(this@MainActivity).apply {
                 tag = "primary"
@@ -320,79 +330,121 @@ class MainActivity : Activity() {
         restyle(box)
     }
 
-    /** 入力イベントが届いているか、オーバーレイが動いているかを確認するための表示 */
-    private fun diagnosticsView(): View {
+    /** 診断は「ヘルプと診断」から開く。入力本文は含めない */
+    private fun diagnosticsText(): String {
         val connected = PetAccessibilityService.connected
         val overlay = OverlayService.isRunning
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(2), dp(10), dp(2), dp(10))
-
-            addView(TextView(this@MainActivity).apply {
-                text = getString(R.string.diag_title)
-                textSize = 12f
-                typeface = Typeface.DEFAULT_BOLD
-                setTextColor(sub)
-            })
-            addView(TextView(this@MainActivity).apply {
-                text = getString(
+        return buildString {
+            appendLine(
+                getString(
                     R.string.diag_summary,
                     getString(if (connected) R.string.diag_connected else R.string.diag_disconnected),
                     PetAccessibilityService.eventCount,
                     PetAccessibilityService.lastPackage,
                     getString(if (overlay) R.string.diag_running else R.string.diag_stopped)
                 )
-                textSize = 12f
-                setTextColor(sub)
-                setPadding(0, dp(4), 0, dp(4))
-            })
-            addView(TextView(this@MainActivity).apply {
-                text = getString(R.string.diag_hint)
-                textSize = 11f
-                setTextColor(sub)
-                setPadding(0, 0, 0, dp(8))
-            })
-            addView(LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                addView(Button(this@MainActivity).apply {
-                    tag = "small"
-                    text = getString(R.string.btn_test_reaction)
-                    setOnClickListener {
-                        if (OverlayService.isRunning) {
-                            OverlayService.reactIfRunning()
-                        } else {
-                            Toast.makeText(this@MainActivity, getString(R.string.toast_overlay_not_running), Toast.LENGTH_SHORT).show()
-                        }
+            )
+            appendLine(getString(R.string.diag_ime, PetAccessibilityService.lastImePackage))
+            appendLine(getString(R.string.diag_last_event, eventTypeName(PetAccessibilityService.lastEventType)))
+            appendLine(getString(R.string.diag_last_match, OverlayService.lastReaction))
+            appendLine(
+                getString(
+                    R.string.diag_foreground,
+                    getString(if (OverlayService.foregroundActive) R.string.diag_running else R.string.diag_stopped)
+                )
+            )
+        }.trimEnd()
+    }
+
+    private fun eventTypeName(type: Int): String = when (type) {
+        AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> "TEXT_CHANGED"
+        AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> "WINDOW_CONTENT_CHANGED"
+        AccessibilityEvent.TYPE_VIEW_CLICKED -> "VIEW_CLICKED"
+        AccessibilityEvent.TYPE_VIEW_SELECTED -> "VIEW_SELECTED"
+        AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> "VIEW_LONG_CLICKED"
+        else -> type.toString()
+    }
+
+    /** 診断は設定ページ内の折りたたみ。別ウィンドウは開かない */
+    private fun diagnosticsCard(): LinearLayout {
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = if (diagExpanded) View.VISIBLE else View.GONE
+        }
+        val info = TextView(this).apply {
+            text = diagnosticsText()
+            textSize = 12f
+            setTextColor(sub)
+            setTextIsSelectable(true)
+            setPadding(0, dp(6), 0, 0)
+        }
+        content.addView(info)
+        content.addView(TextView(this).apply {
+            text = getString(R.string.diag_hint)
+            textSize = 11f
+            setTextColor(sub)
+            setPadding(0, dp(6), 0, dp(8))
+        })
+
+        val buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Button(this@MainActivity).apply {
+                tag = "small"
+                text = getString(R.string.btn_test_reaction)
+                setOnClickListener {
+                    if (OverlayService.isRunning) {
+                        OverlayService.reactIfRunning()
+                    } else {
+                        Toast.makeText(this@MainActivity, getString(R.string.toast_overlay_not_running), Toast.LENGTH_SHORT).show()
                     }
-                    layoutParams = LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT
-                    ).apply { marginEnd = dp(8) }
-                })
-                addView(Button(this@MainActivity).apply {
-                    tag = "small"
-                    text = getString(R.string.btn_reset)
-                    setOnClickListener {
-                        PetAccessibilityService.resetStats()
-                        renderPerm()
-                    }
-                })
+                }
             })
-            addView(LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { topMargin = dp(8) }
-                addView(Button(this@MainActivity).apply {
-                    tag = "small"
-                    text = getString(R.string.btn_view_log)
-                    setOnClickListener { showLogDialog() }
-                })
+            addView(Button(this@MainActivity).apply {
+                tag = "small"
+                text = getString(R.string.btn_reset)
+                setOnClickListener {
+                    PetAccessibilityService.resetStats()
+                    info.text = diagnosticsText()
+                }
             })
+            addView(Button(this@MainActivity).apply {
+                tag = "small"
+                text = getString(R.string.btn_view_log)
+                setOnClickListener { showLogDialog() }
+            })
+        }
+        content.addView(buttons)
+
+        val arrow = TextView(this).apply {
+            text = if (diagExpanded) "▾" else "▸"
+            textSize = 18f
+            setTextColor(sub)
+            setPadding(dp(8), 0, 0, 0)
+        }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            setPadding(0, dp(4), 0, dp(4))
+            addView(smallLabel(getString(R.string.diag_title)).apply {
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            })
+            addView(arrow)
+            setOnClickListener {
+                diagExpanded = !diagExpanded
+                content.visibility = if (diagExpanded) View.VISIBLE else View.GONE
+                arrow.text = if (diagExpanded) "▾" else "▸"
+                if (diagExpanded) info.text = diagnosticsText()
+            }
+        }
+
+        return sectionCard {
+            addView(header)
+            addView(content)
         }
     }
 
+    /** 診断ログは元のスクロールできる単独ウィンドウで表示する */
     private fun showLogDialog() {
         var text = DiagLog.read(this).takeLast(8000)
         if (text.isBlank()) {
@@ -415,7 +467,13 @@ class MainActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle(getString(R.string.log_title))
             .setView(scroll)
-            .setPositiveButton(getString(R.string.btn_ok), null)
+            .setPositiveButton(getString(R.string.btn_share)) { _, _ ->
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
+                startActivity(Intent.createChooser(send, getString(R.string.btn_share)))
+            }
             .setNeutralButton(getString(R.string.btn_copy)) { _, _ ->
                 val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
                 cm.setPrimaryClip(android.content.ClipData.newPlainText("diag", text))
@@ -671,12 +729,21 @@ class MainActivity : Activity() {
             getString(R.string.tab_preset),
             getString(R.string.tab_image)
         )
-        tabBar.addView(segmented(labels, currentTab) { i -> currentTab = i; renderAll() })
+        tabBar.addView(segmented(labels, currentTab) { i -> switchTab(i) })
+    }
+
+    private fun switchTab(index: Int) {
+        if (index == currentTab) return
+        tabScrollY[currentTab] = mainScroll?.scrollY ?: 0
+        currentTab = index
+        renderAll()
+        mainScroll?.post { mainScroll?.scrollTo(0, tabScrollY[currentTab]) }
     }
 
     // ---------- 基本設定タブ ----------
 
     private fun renderBasic() {
+        val keepScroll = mainScroll?.scrollY ?: 0
         basicBox.removeAllViews()
 
         basicBox.addView(sectionCard {
@@ -817,7 +884,6 @@ class MainActivity : Activity() {
             addView(sensitivityRow)
             addView(descLabel(getString(R.string.desc_motion_battery)))
             addView(Button(this@MainActivity).apply {
-                tag = "small"
                 text = getString(R.string.btn_recenter_tilt)
                 setOnClickListener {
                     if (OverlayService.isRunning) {
@@ -828,7 +894,7 @@ class MainActivity : Activity() {
                     }
                 }
                 layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply { topMargin = dp(8) }
             })
@@ -852,12 +918,17 @@ class MainActivity : Activity() {
                 }
             })
         })
+
+        basicBox.addView(spacer(16))
+        basicBox.addView(diagnosticsCard())
         restyle(basicBox)
+        mainScroll?.post { mainScroll?.scrollTo(0, keepScroll) }
     }
 
     // ---------- プリセットタブ ----------
 
     private fun renderPreset() {
+        val keepScroll = mainScroll?.scrollY ?: 0
         presetBox.removeAllViews()
 
         presetBox.addView(charactersCard())
@@ -906,6 +977,7 @@ class MainActivity : Activity() {
             addView(row)
         })
         restyle(presetBox)
+        mainScroll?.post { mainScroll?.scrollTo(0, keepScroll) }
     }
 
     // ---------- キャラ(イラスト一式を保存して切り替え) ----------
@@ -1023,7 +1095,15 @@ class MainActivity : Activity() {
         })
     }
 
-    /** 1行テキストを入力するダイアログ(空欄ならOKしても何もしない) */
+    private fun confirmDelete(message: String, onConfirm: () -> Unit) {
+        AlertDialog.Builder(this)
+            .setMessage(message)
+            .setPositiveButton(getString(R.string.btn_remove)) { _, _ -> onConfirm() }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
+    }
+
+    /** 1行テキストを入力するダイアログ(空欄の間はOKを無効にする) */
     private fun showTextDialog(title: String, initial: String, hintText: String, onOk: (String) -> Unit) {
         val input = EditText(this).apply {
             setText(initial)
@@ -1035,15 +1115,30 @@ class MainActivity : Activity() {
             setPadding(dp(20), dp(8), dp(20), 0)
             addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(title)
             .setView(box)
-            .setPositiveButton(getString(R.string.btn_ok)) { _, _ ->
-                val v = input.text.toString().trim()
-                if (v.isNotEmpty()) onOk(v)
-            }
+            .setPositiveButton(getString(R.string.btn_ok), null)
             .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
+            .create()
+        dialog.setOnShowListener {
+            val ok = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            fun refresh() { ok.isEnabled = input.text.toString().trim().isNotEmpty() }
+            refresh()
+            input.addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { refresh() }
+                override fun afterTextChanged(s: Editable?) {}
+            })
+            ok.setOnClickListener {
+                val v = input.text.toString().trim()
+                if (v.isNotEmpty()) {
+                    onOk(v)
+                    dialog.dismiss()
+                }
+            }
+        }
+        dialog.show()
     }
 
     // ---------- イラストタブ ----------
@@ -1065,6 +1160,9 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(outState)
         outState.putString("pendingCategory", pendingCategory)
         outState.putInt("pendingIndex", pendingIndex)
+        outState.putInt("currentTab", currentTab)
+        outState.putInt("scrollY", mainScroll?.scrollY ?: tabScrollY[currentTab])
+        outState.putBoolean("diagExpanded", diagExpanded)
     }
 
     override fun onRestoreInstanceState(savedInstanceState: Bundle) {
@@ -1088,6 +1186,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderImages() {
+        val keepScroll = mainScroll?.scrollY ?: 0
         imageBox.removeAllViews()
         imageBox.addView(idleCard())
         imageBox.addView(spacer(16))
@@ -1095,6 +1194,7 @@ class MainActivity : Activity() {
         imageBox.addView(spacer(16))
         imageBox.addView(triggersCard())
         restyle(imageBox)
+        mainScroll?.post { mainScroll?.scrollTo(0, keepScroll) }
     }
 
     /** 待機イラスト(ランダム表示) */
@@ -1104,10 +1204,12 @@ class MainActivity : Activity() {
         addView(spacer(10))
 
         addView(thumbStrip(Prefs.getImages(this@MainActivity, Prefs.CAT_IDLE)) { i ->
-            val list = Prefs.getImages(this@MainActivity, Prefs.CAT_IDLE)
-            if (i in list.indices) list.removeAt(i)
-            Prefs.setImages(this@MainActivity, Prefs.CAT_IDLE, list)
-            imagesChanged()
+            confirmDelete(getString(R.string.confirm_delete_image)) {
+                val list = Prefs.getImages(this@MainActivity, Prefs.CAT_IDLE)
+                if (i in list.indices) list.removeAt(i)
+                Prefs.setImages(this@MainActivity, Prefs.CAT_IDLE, list)
+                imagesChanged()
+            }
         })
 
         addView(spacer(8))
@@ -1146,20 +1248,24 @@ class MainActivity : Activity() {
                     tag = "small"
                     text = getString(R.string.btn_delete_step)
                     setOnClickListener {
-                        val s = Prefs.getTypingSteps(this@MainActivity)
-                        if (si in s.indices) s.removeAt(si)
-                        Prefs.setTypingSteps(this@MainActivity, s)
-                        imagesChanged()
+                        confirmDelete(getString(R.string.confirm_delete_item)) {
+                            val s = Prefs.getTypingSteps(this@MainActivity)
+                            if (si in s.indices) s.removeAt(si)
+                            Prefs.setTypingSteps(this@MainActivity, s)
+                            imagesChanged()
+                        }
                     }
                 })
                 addView(header)
                 addView(spacer(8))
 
                 addView(thumbStrip(variants) { i ->
-                    val s = Prefs.getTypingSteps(this@MainActivity)
-                    if (si in s.indices && i in s[si].indices) s[si].removeAt(i)
-                    Prefs.setTypingSteps(this@MainActivity, s)
-                    imagesChanged()
+                    confirmDelete(getString(R.string.confirm_delete_image)) {
+                        val s = Prefs.getTypingSteps(this@MainActivity)
+                        if (si in s.indices && i in s[si].indices) s[si].removeAt(i)
+                        Prefs.setTypingSteps(this@MainActivity, s)
+                        imagesChanged()
+                    }
                 })
 
                 addView(spacer(8))
@@ -1218,20 +1324,24 @@ class MainActivity : Activity() {
                     tag = "small"
                     text = getString(R.string.btn_remove)
                     setOnClickListener {
-                        val all = Prefs.getTriggers(this@MainActivity)
-                        if (ti in all.indices) all.removeAt(ti)
-                        Prefs.setTriggers(this@MainActivity, all)
-                        imagesChanged()
+                        confirmDelete(getString(R.string.confirm_delete_item)) {
+                            val all = Prefs.getTriggers(this@MainActivity)
+                            if (ti in all.indices) all.removeAt(ti)
+                            Prefs.setTriggers(this@MainActivity, all)
+                            imagesChanged()
+                        }
                     }
                 })
                 addView(header)
                 addView(spacer(8))
 
                 addView(thumbStrip(t.images) { i ->
-                    val all = Prefs.getTriggers(this@MainActivity)
-                    if (ti in all.indices && i in all[ti].images.indices) all[ti].images.removeAt(i)
-                    Prefs.setTriggers(this@MainActivity, all)
-                    imagesChanged()
+                    confirmDelete(getString(R.string.confirm_delete_image)) {
+                        val all = Prefs.getTriggers(this@MainActivity)
+                        if (ti in all.indices && i in all[ti].images.indices) all[ti].images.removeAt(i)
+                        Prefs.setTriggers(this@MainActivity, all)
+                        imagesChanged()
+                    }
                 })
 
                 addView(spacer(8))

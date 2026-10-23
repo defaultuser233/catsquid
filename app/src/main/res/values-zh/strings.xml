@@ -85,6 +85,8 @@
     <string name="dialog_char_name_title">角色名称</string>
     <string name="copy_suffix">%1$s 的副本</string>
     <string name="confirm_delete_char">要删除“%1$s”吗？</string>
+    <string name="confirm_delete_item">要删除这个项目吗？</string>
+    <string name="confirm_delete_image">要删除这张图片吗？</string>
     <string name="toast_last_char">最后一个角色无法删除</string>
     <string name="switch_shadow_title">显示脚下阴影</string>
     <string name="switch_shadow_desc">宠物脚下会显示一层淡阴影。如果使用透明 PNG 插画觉得阴影碍眼，请关闭。</string>
@@ -116,12 +118,17 @@
     <string name="btn_reset">重置计数</string>
     <string name="toast_overlay_not_running">请先点③显示宠物</string>
     <string name="diag_hint">去其他应用输入几个字，再回到这里查看计数。如果一直是 0，说明输入事件没有进来。</string>
+    <string name="diag_ime">输入法：%1$s</string>
+    <string name="diag_last_event">最近事件：%1$s</string>
+    <string name="diag_last_match">最近匹配：%1$s</string>
+    <string name="diag_foreground">前台服务：%1$s</string>
     <string name="btn_view_log">查看诊断日志</string>
     <string name="btn_clear_log">清空日志</string>
     <string name="toast_log_cleared">日志已清空</string>
     <string name="log_title">诊断日志</string>
     <string name="log_empty">还没有日志</string>
     <string name="btn_copy">复制</string>
+    <string name="btn_share">分享</string>
     <string name="toast_copied">已复制</string>
 
     <string name="section_motion">传感器互动</string>

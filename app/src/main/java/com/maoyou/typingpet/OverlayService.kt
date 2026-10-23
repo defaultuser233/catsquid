@@ -27,7 +27,6 @@ import android.view.MotionEvent
 import android.view.WindowManager
 import androidx.core.content.ContextCompat
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /** 表示中のキャラを1体ずつ別ウィンドウで画面に浮かせる(それぞれドラッグで移動できる) */
 class OverlayService : Service() {
@@ -94,6 +93,14 @@ class OverlayService : Service() {
         @Volatile var instance: OverlayService? = null
 
         val isRunning: Boolean get() = instance != null
+
+        /** 前面サービスとして通知を出せているか(診断用) */
+        @Volatile var foregroundActive = false
+            private set
+
+        /** 直近の照合結果。入力本文は含めない(診断用) */
+        @Volatile var lastReaction = "-"
+            private set
 
         /** ユーザー操作で表示を開始する。再起動後の復元対象として記録する */
         fun start(context: Context) {
@@ -250,6 +257,7 @@ class OverlayService : Service() {
             }
             pets.values.forEach { p ->
                 val idx = if (window == null) -1 else TriggerMatcher.find(window, newFrom, p.keys)
+                lastReaction = "match=${if (idx >= 0) idx.toString() else "-"} advance=$advance"
                 p.view.react(idx, inserted, advance)
             }
         }
@@ -283,11 +291,9 @@ class OverlayService : Service() {
         return Rect(0, 0, dm.widthPixels, dm.heightPixels)
     }
 
-    private fun pxForAnchor(anchor: Double, max: Int): Int =
-        (anchor.coerceIn(0.0, 1.0) * max).roundToInt().coerceIn(0, max)
+    private fun pxForAnchor(anchor: Double, max: Int): Int = PositionMath.pxForAnchor(anchor, max)
 
-    private fun anchorForPx(px: Int, max: Int): Double =
-        if (max <= 0) 0.0 else (px.toDouble() / max).coerceIn(0.0, 1.0)
+    private fun anchorForPx(px: Int, max: Int): Double = PositionMath.anchorForPx(px, max)
 
     /** 設定や画面構成が変わったとき、画像一式は触らずに位置とサイズだけ合わせ直す */
     private fun relayoutWindows() {
@@ -463,6 +469,7 @@ class OverlayService : Service() {
         if (::motion.isInitialized) motion.stop()
         try { unregisterReceiver(screenReceiver) } catch (_: Exception) {}
         super.onDestroy()
+        foregroundActive = false
         instance = null
         pets.values.forEach { p -> try { windowManager.removeView(p.view) } catch (e: Exception) {} }
         pets.clear()
@@ -550,8 +557,10 @@ class OverlayService : Service() {
             } else {
                 startForeground(1, notification)
             }
+            foregroundActive = true
         } catch (e: Exception) {
             // 前面にできない状況でも、ペットはそのまま表示する
+            foregroundActive = false
             DiagLog.log(this, "foreground failed: ${e.javaClass.name}")
         }
     }
