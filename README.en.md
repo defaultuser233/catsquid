@@ -16,6 +16,7 @@ On first launch, a language picker appears (device language / 日本語 / Englis
 - **Auto-start on boot**: ON = the pet returns automatically after a device restart; OFF = show it with button ③ after a restart. Use the notification's Stop action to stop it anytime.
 - **Position lock**: ON = taps pass through to the app below and dragging is disabled
 - **Reset position**
+- **Backup & restore**: export characters, images, and settings to a zip; importing replaces the current data.
 - **Motion**: tilt the phone and the pet slides gently toward gravity and tilts its head. Tilt sensitivity is adjustable with a slider (0–100%). Sensors run only while the pet is visible and the screen is on.
 - **Character presets**: save a set of images + built-in color per named character and switch between them
 - **Multiple characters**: show any number of saved characters at once. Tap the "characters on screen" icons to show/hide; drag each character on screen.

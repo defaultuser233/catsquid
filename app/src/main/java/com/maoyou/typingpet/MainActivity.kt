@@ -44,6 +44,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.pm.ShortcutInfoCompat
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.UUID
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
@@ -363,6 +366,121 @@ class MainActivity : Activity() {
         AccessibilityEvent.TYPE_VIEW_SELECTED -> "VIEW_SELECTED"
         AccessibilityEvent.TYPE_VIEW_LONG_CLICKED -> "VIEW_LONG_CLICKED"
         else -> type.toString()
+    }
+
+    private fun backupCard(): LinearLayout = sectionCard {
+        addView(smallLabel(getString(R.string.section_backup)))
+        addView(descLabel(getString(R.string.desc_backup)))
+        addView(spacer(8))
+        addView(Button(this@MainActivity).apply {
+            text = getString(R.string.btn_export_backup)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener { startExportBackup() }
+        })
+        addView(Button(this@MainActivity).apply {
+            text = getString(R.string.btn_import_backup)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            setOnClickListener { startImportBackup() }
+        })
+    }
+
+    private fun startExportBackup() {
+        val name = "catsquid-backup-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.zip"
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/zip"
+            putExtra(Intent.EXTRA_TITLE, name)
+        }
+        try {
+            startActivityForResult(intent, REQ_EXPORT)
+        } catch (e: Exception) {
+            Toast.makeText(this, getString(R.string.toast_export_failed), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun startImportBackup() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/zip", "application/octet-stream"))
+        }
+        try {
+            startActivityForResult(intent, REQ_IMPORT)
+        } catch (e: Exception) {
+            Toast.makeText(this, getString(R.string.toast_backup_read_failed), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun exportBackup(uri: Uri) {
+        Toast.makeText(this, getString(R.string.backup_working), Toast.LENGTH_SHORT).show()
+        Thread {
+            val ok = try {
+                val out = contentResolver.openOutputStream(uri) ?: throw java.io.IOException("no output")
+                out.use { Backup.write(this, it) }
+                true
+            } catch (e: Exception) {
+                DiagLog.log(this, "export failed: ${e.javaClass.simpleName}")
+                false
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                Toast.makeText(
+                    this,
+                    getString(if (ok) R.string.toast_export_ok else R.string.toast_export_failed),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }.start()
+    }
+
+    private fun confirmImport(uri: Uri) {
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.confirm_import_title))
+            .setMessage(getString(R.string.confirm_import))
+            .setPositiveButton(getString(R.string.btn_import_backup)) { _, _ -> importBackup(uri) }
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .show()
+    }
+
+    private fun importBackup(uri: Uri) {
+        Toast.makeText(this, getString(R.string.backup_working), Toast.LENGTH_SHORT).show()
+        val oldLanguage = Prefs.getLanguage(this)
+        Thread {
+            val language = try {
+                val temp = File(cacheDir, "import-${UUID.randomUUID()}.zip")
+                try {
+                    val stat = contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
+                    if (stat > Backup.MAX_ZIP_BYTES) throw java.io.IOException("zip too large")
+                    val input = contentResolver.openInputStream(uri) ?: throw java.io.IOException("no input")
+                    input.use { inp -> temp.outputStream().use { inp.copyTo(it) } }
+                    Backup.read(this, temp).language
+                } finally {
+                    temp.delete()
+                }
+            } catch (e: Exception) {
+                DiagLog.log(this, "import failed: ${e.javaClass.simpleName}")
+                null
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (language == null) {
+                    Toast.makeText(this, getString(R.string.toast_backup_read_failed), Toast.LENGTH_SHORT).show()
+                } else {
+                    cleanupImages()
+                    renderAll()
+                    OverlayService.refreshIfRunning()
+                    OverlayService.refreshNotification()
+                    Toast.makeText(this, getString(R.string.toast_import_ok), Toast.LENGTH_SHORT).show()
+                    if (language != oldLanguage) recreate()
+                }
+            }
+        }.start()
     }
 
     /** 診断は設定ページ内の折りたたみ。別ウィンドウは開かない */
@@ -920,6 +1038,8 @@ class MainActivity : Activity() {
         })
 
         basicBox.addView(spacer(16))
+        basicBox.addView(backupCard())
+        basicBox.addView(spacer(16))
         basicBox.addView(diagnosticsCard())
         restyle(basicBox)
         mainScroll?.post { mainScroll?.scrollTo(0, keepScroll) }
@@ -1144,6 +1264,8 @@ class MainActivity : Activity() {
     // ---------- イラストタブ ----------
 
     private val REQ_PICK = 400
+    private val REQ_EXPORT = 330
+    private val REQ_IMPORT = 331
     private val CAT_STEP = "step"
     private val CAT_TRIGGER = "trigger"
     private var pendingCategory = ""
@@ -1503,6 +1625,14 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK || data == null) return
 
+        if (requestCode == REQ_EXPORT) {
+            data.data?.let { exportBackup(it) }
+            return
+        }
+        if (requestCode == REQ_IMPORT) {
+            data.data?.let { confirmImport(it) }
+            return
+        }
         if (requestCode == 320) {
             data.data?.let { createIconShortcut(it) }
             return

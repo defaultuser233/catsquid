@@ -39,6 +39,17 @@
     <string name="switch_lock_title">位置ロック(タップを素通し)</string>
     <string name="switch_lock_desc">ONにするとタップが下のアプリに通り抜け、ドラッグで動かせなくなります。</string>
     <string name="btn_reset_pos">位置を初期化</string>
+    <string name="section_backup">バックアップと復元</string>
+    <string name="desc_backup">キャラ・画像・設定を zip に書き出します。復元すると今のデータは上書きされます。</string>
+    <string name="btn_export_backup">バックアップを書き出す</string>
+    <string name="btn_import_backup">バックアップから復元</string>
+    <string name="confirm_import_title">バックアップから復元</string>
+    <string name="confirm_import">今のキャラ・画像・設定はすべて上書きされます。続けますか？</string>
+    <string name="toast_export_ok">バックアップを書き出しました</string>
+    <string name="toast_export_failed">バックアップの書き出しに失敗しました</string>
+    <string name="toast_import_ok">バックアップから復元しました</string>
+    <string name="toast_backup_read_failed">バックアップを読み込めませんでした</string>
+    <string name="backup_working">処理中…</string>
 
     <string name="label_builtin_color">内蔵カラー</string>
     <string name="desc_builtin_color">イラストタブで画像を追加していない間は、ここで選んだ色が使われます。</string>

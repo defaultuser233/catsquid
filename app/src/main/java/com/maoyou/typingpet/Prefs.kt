@@ -427,6 +427,37 @@ object Prefs {
         }
     }
 
+    /** バックアップからキャラ構成を丸ごと差し替える */
+    fun replaceCharacters(context: Context, chars: JSONArray, active: Int, shown: Set<String>) {
+        if (chars.length() == 0) return
+        for (i in 0 until chars.length()) {
+            val o = chars.optJSONObject(i) ?: continue
+            if (o.optString("id").isBlank()) o.put("id", newId())
+            if (o.optString("n").isBlank()) o.put("n", context.getString(R.string.default_char_name))
+            o.put("preset", o.optInt("preset", 0).coerceIn(0, 3))
+            val fx = o.optDouble("fx", defaultFx(i))
+            val fy = o.optDouble("fy", defaultFy(i))
+            o.put("fx", if (fx.isFinite()) fx.coerceIn(0.0, 1.0) else defaultFx(i))
+            o.put("fy", if (fy.isFinite()) fy.coerceIn(0.0, 1.0) else defaultFy(i))
+        }
+        val a = active.coerceIn(0, chars.length() - 1)
+        writeChars(context, chars)
+        val shownJson = JSONArray()
+        for (i in 0 until chars.length()) {
+            val id = chars.optJSONObject(i)?.optString("id") ?: continue
+            if (id in shown) shownJson.put(id)
+        }
+        if (shownJson.length() == 0) {
+            chars.optJSONObject(a)?.optString("id")?.let { if (it.isNotBlank()) shownJson.put(it) }
+        }
+        sp(context).edit()
+            .putInt(KEY_ACTIVE, a)
+            .putString(KEY_SHOWN, shownJson.toString())
+            .apply()
+        chars.optJSONObject(a)?.let { applySnapshot(context, it) }
+        matchKeysCache = null
+    }
+
     /** 表示中キャラのid。未設定なら編集中キャラだけを表示 */
     fun getShownIds(context: Context): Set<String> {
         ensureCharacters(context)

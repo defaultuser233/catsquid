@@ -391,8 +391,10 @@ CI 最少应包含：`./gradlew testDebugUnitTest lint assembleRelease`。
 - [ ] **P2-1 拆分 MainActivity**：Fragment/Compose + ViewModel；`ui/` 组件化。
 - [ ] **P2-2 拆分 Prefs**：单一 `CharacterStore` + schema 版本 + 原子事务；移除扁平键双真相源。
 - [ ] **P2-5 动画升级**：`AnimatedImageDrawable`/`ImageDecoder` 替代 `Movie`；共享帧缓存；支持动态 WebP。
-- [ ] **P2-6 导入/导出**：角色包 zip（JSON + 图片）、分享预设、版本兼容。
+- [x] **P2-6 导入/导出**：角色包 zip（JSON + 图片）、分享预设、版本兼容。
 - [ ] **P2-10 性能基准**：Macrobenchmark 启动、内存、电量；把“100 张图”“5 只宠物”“1 小时打字”纳入回归。
+
+> P2-6 已完成并构建为 `1.2.40`（`versionCode=43`）：zip 内含 `backup.json` + `images/`，支持角色、图片、位置、显示状态和主要设置；导入会覆盖当前数据。
 
 ---
 

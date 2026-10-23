@@ -39,6 +39,17 @@
     <string name="switch_lock_title">위치 잠금(터치 통과)</string>
     <string name="switch_lock_desc">ON으로 하면 터치가 아래 앱으로 그대로 전달되고, 드래그로 이동할 수 없습니다.</string>
     <string name="btn_reset_pos">위치 초기화</string>
+    <string name="section_backup">백업 및 복원</string>
+    <string name="desc_backup">캐릭터, 이미지, 설정을 zip으로 내보냅니다. 복원하면 현재 데이터를 덮어씁니다.</string>
+    <string name="btn_export_backup">백업 내보내기</string>
+    <string name="btn_import_backup">백업에서 복원</string>
+    <string name="confirm_import_title">백업에서 복원</string>
+    <string name="confirm_import">현재 캐릭터, 이미지, 설정이 모두 덮어써집니다. 계속할까요?</string>
+    <string name="toast_export_ok">백업을 내보냈습니다</string>
+    <string name="toast_export_failed">백업을 내보내지 못했습니다</string>
+    <string name="toast_import_ok">백업에서 복원했습니다</string>
+    <string name="toast_backup_read_failed">백업을 읽을 수 없습니다</string>
+    <string name="backup_working">처리 중…</string>
 
     <string name="label_builtin_color">내장 색상</string>
     <string name="desc_builtin_color">이미지 탭에서 이미지를 추가하지 않은 동안 여기서 선택한 색이 사용됩니다.</string>

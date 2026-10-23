@@ -39,6 +39,17 @@
     <string name="switch_lock_title">Lock position (pass touches through)</string>
     <string name="switch_lock_desc">When ON, taps pass through to the app underneath and the pet can\'t be dragged.</string>
     <string name="btn_reset_pos">Reset position</string>
+    <string name="section_backup">Backup &amp; restore</string>
+    <string name="desc_backup">Export characters, images, and settings to a zip. Importing replaces the current data.</string>
+    <string name="btn_export_backup">Export backup</string>
+    <string name="btn_import_backup">Restore from backup</string>
+    <string name="confirm_import_title">Restore from backup</string>
+    <string name="confirm_import">This will replace all current characters, images, and settings. Continue?</string>
+    <string name="toast_export_ok">Backup exported</string>
+    <string name="toast_export_failed">Could not export the backup</string>
+    <string name="toast_import_ok">Backup restored</string>
+    <string name="toast_backup_read_failed">Could not read the backup</string>
+    <string name="backup_working">Working…</string>
 
     <string name="label_builtin_color">Built-in colors</string>
     <string name="desc_builtin_color">Used whenever you haven\'t added any custom images in the Images tab.</string>
