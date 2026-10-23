@@ -1,6 +1,7 @@
 package com.maoyou.typingpet
 
 import android.accessibilityservice.AccessibilityService
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -21,10 +22,11 @@ class ImeWindowWatcher(
 ) {
 
     private companion object {
-        const val INTERVAL_MS = 150L
+        const val FAST_MS = 80L
+        const val IDLE_MS = 400L
+        const val TYPING_WINDOW_MS = 800L
         const val MAX_NODES = 80
         const val MAX_DEPTH = 8
-        const val CHANGE_MIN_GAP_MS = 120L
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -32,6 +34,7 @@ class ImeWindowWatcher(
     private var lastSignature = ""
     private var lastPkg = ""
     private var lastChangeAt = 0L
+    private var nextDelay = IDLE_MS
     private val loggedWindows = HashSet<String>()
     private var loggedNoRoot = false
 
@@ -42,14 +45,17 @@ class ImeWindowWatcher(
                 poll()
             } catch (_: Throwable) {
             }
-            if (running) handler.postDelayed(this, INTERVAL_MS)
+            val typing = SystemClock.uptimeMillis() - lastChangeAt < TYPING_WINDOW_MS
+            nextDelay = if (typing) FAST_MS else IDLE_MS
+            if (running) handler.postDelayed(this, nextDelay)
         }
     }
 
     fun start() {
         if (running) return
         running = true
-        handler.postDelayed(tick, INTERVAL_MS)
+        lastChangeAt = 0L
+        handler.post(tick)
     }
 
     fun stop() {
@@ -57,6 +63,7 @@ class ImeWindowWatcher(
         handler.removeCallbacks(tick)
         lastSignature = ""
         lastPkg = ""
+        lastChangeAt = 0L
     }
 
     /** 診断ログを消したあと、初出記録をもう一度出せるようにする */
@@ -89,6 +96,7 @@ class ImeWindowWatcher(
 
         val sig = StringBuilder()
         val nodes = collect(root, sig)
+        if (Build.VERSION.SDK_INT < 33) root.recycle()
         if (loggedWindows.add(pkg)) {
             DiagLog.log(service, "ime window pkg=$pkg nodes=$nodes textLen=${sig.length}")
         }
@@ -102,10 +110,7 @@ class ImeWindowWatcher(
         }
         if (text == lastSignature) return
         lastSignature = text
-
-        val now = SystemClock.uptimeMillis()
-        if (now - lastChangeAt < CHANGE_MIN_GAP_MS) return
-        lastChangeAt = now
+        lastChangeAt = SystemClock.uptimeMillis()
         onKeyActivity(pkg)
     }
 
@@ -119,10 +124,12 @@ class ImeWindowWatcher(
             visited++
             node.text?.let { sb.append(it).append('\u0001') }
             node.contentDescription?.let { sb.append(it).append('\u0001') }
-            if (depth >= MAX_DEPTH) continue
-            for (i in 0 until node.childCount) {
-                node.getChild(i)?.let { queue.add(it to depth + 1) }
+            if (depth < MAX_DEPTH) {
+                for (i in 0 until node.childCount) {
+                    node.getChild(i)?.let { queue.add(it to depth + 1) }
+                }
             }
+            if (node !== root && Build.VERSION.SDK_INT < 33) node.recycle()
         }
         return visited
     }

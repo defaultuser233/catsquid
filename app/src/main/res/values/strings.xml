@@ -34,8 +34,8 @@
     <string name="shake_3">3段階</string>
 
     <string name="label_display">表示</string>
-    <string name="switch_always_on_top_title">常に最前面に固定</string>
-    <string name="switch_always_on_top_desc">ONだと他のアプリを開いたときも自動でペットが現れます。OFFだと③ボタンを押した時だけ表示されます。</string>
+    <string name="switch_always_on_top_title">起動時に自動で表示</string>
+    <string name="switch_always_on_top_desc">ONなら端末を再起動してもペットが自動で戻ります。OFFなら再起動後は③ボタンで表示します。</string>
     <string name="switch_lock_title">位置ロック(タップを素通し)</string>
     <string name="switch_lock_desc">ONにするとタップが下のアプリに通り抜け、ドラッグで動かせなくなります。</string>
     <string name="btn_reset_pos">位置を初期化</string>
@@ -96,6 +96,7 @@
     <string name="btn_add_delete_trigger">＋ ⌫ 消したときの反応を追加</string>
     <string name="notif_channel">ペットの表示</string>
     <string name="notif_text">ペットを表示中</string>
+    <string name="notif_action_stop">停止</string>
     <string name="pick_image_title">画像を選ぶアプリ</string>
     <string name="toast_import_failed">読み込めなかった画像があります</string>
     <string name="perm_ok">✓ OK</string>

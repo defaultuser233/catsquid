@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -23,6 +22,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.Settings
+import android.util.LruCache
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -102,6 +102,7 @@ class MainActivity : Activity() {
             .setTitle(getString(R.string.language_dialog_title))
             .setItems(labels) { _, which ->
                 Prefs.setLanguage(this, codes[which])
+                OverlayService.refreshNotification()
                 recreate()
             }
             .setCancelable(cancelable)
@@ -311,7 +312,7 @@ class MainActivity : Activity() {
                 setOnClickListener {
                     if (Settings.canDrawOverlays(this@MainActivity)) {
                         requestNotificationPermission()
-                        startService(Intent(this@MainActivity, OverlayService::class.java))
+                        OverlayService.start(this@MainActivity)
                     }
                 }
             })
@@ -589,10 +590,10 @@ class MainActivity : Activity() {
                 thumbFor(uri)?.let { setImageBitmap(it) }
             }
         } else {
-            PetView(this).apply {
-                preset = c.preset
-                showShadow = false
-                animateBuiltIn = false
+            ImageView(this).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                BuiltInArt.previewBitmap(this@MainActivity, "idle_1", size, c.preset)
+                    ?.let { setImageBitmap(it) }
             }
         }
         face.background = GradientDrawable().apply {
@@ -636,7 +637,8 @@ class MainActivity : Activity() {
         cell.setOnClickListener {
             Prefs.setShown(this, c.id, !isShown)
             if (!isShown && OverlayService.instance == null && Settings.canDrawOverlays(this)) {
-                startService(Intent(this, OverlayService::class.java))
+                requestNotificationPermission()
+                OverlayService.start(this)
             } else {
                 OverlayService.refreshIfRunning()
             }
@@ -880,10 +882,11 @@ class MainActivity : Activity() {
                     background = rounded(if (i == current) accentSoft else Color.TRANSPARENT, 14,
                         if (i == current) accent else line)
                 }
-                val preview = PetView(this@MainActivity).apply {
-                    preset = i
-                    animateBuiltIn = false
+                val preview = ImageView(this@MainActivity).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
                     layoutParams = LinearLayout.LayoutParams(dp(64), dp(64))
+                    BuiltInArt.previewBitmap(this@MainActivity, "idle_1", dp(64), i)
+                        ?.let { setImageBitmap(it) }
                     setOnClickListener {
                         Prefs.setPreset(this@MainActivity, i)
                         OverlayService.refreshIfRunning()
@@ -1050,7 +1053,13 @@ class MainActivity : Activity() {
     private val CAT_TRIGGER = "trigger"
     private var pendingCategory = ""
     private var pendingIndex = -1
-    private val thumbCache = HashMap<String, Bitmap?>()
+    private val thumbCache = object : LruCache<String, Bitmap>(thumbCacheBytes()) {
+        override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
+    }
+    private val failedThumbs = HashSet<String>()
+
+    private fun thumbCacheBytes(): Int =
+        (Runtime.getRuntime().maxMemory() / 16).coerceIn(4L * 1024 * 1024, 8L * 1024 * 1024).toInt()
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
@@ -1062,6 +1071,13 @@ class MainActivity : Activity() {
         super.onRestoreInstanceState(savedInstanceState)
         pendingCategory = savedInstanceState.getString("pendingCategory", "") ?: ""
         pendingIndex = savedInstanceState.getInt("pendingIndex", -1)
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        thumbCache.evictAll()
+        failedThumbs.clear()
+        BuiltInArt.clearPreviews()
     }
 
     /** 画像設定を変えたらオーバーレイに反映して描き直す */
@@ -1332,9 +1348,10 @@ class MainActivity : Activity() {
     }
 
     private fun thumbFor(uri: String): Bitmap? {
-        if (thumbCache.containsKey(uri)) return thumbCache[uri]
+        thumbCache.get(uri)?.let { return it }
+        if (uri in failedThumbs) return null
         val bmp = ImageLoader.load(this, uri, dp(64))
-        thumbCache[uri] = bmp
+        if (bmp != null) thumbCache.put(uri, bmp) else failedThumbs.add(uri)
         return bmp
     }
 
@@ -1347,11 +1364,7 @@ class MainActivity : Activity() {
     // ---------- ホーム画面アイコン(ショートカット) ----------
 
     private fun createIconShortcut(uri: Uri) {
-        val original = try {
-            contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-        } catch (e: Exception) { null }
-
-        if (original == null) return
+        val original = ImageLoader.load(this, uri.toString(), 512) ?: return
 
         val squared = cropToSquare(original)
         val icon = IconCompat.createWithBitmap(squared)

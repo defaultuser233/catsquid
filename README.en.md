@@ -4,7 +4,7 @@
 
 A cat pet overlay that floats above other apps such as X. No custom keyboard is required — keep using your normal keyboard. Every time you type in any text field, the pet switches its animation (or your own uploaded images) and gives a little bounce. You can assign specific characters ("!", "あ", etc.) to your own images, and the pet returns to its idle animation as soon as you stop typing.
 
-How it works: (1) the "display over other apps" permission lets the pet float on screen; (2) an accessibility service detects changes in text fields and notifies the pet. Normally it only notices that a change happened. If you configure character triggers or enable the built-in "⌫ when deleting" animation, it compares the text around the cursor on the spot (never saved or sent; password fields are ignored).
+How it works: (1) the "display over other apps" permission lets the pet float on screen; (2) an accessibility service detects changes in text fields and notifies the pet. Normally it only notices that a change happened; to play the built-in `!` / `?` / space animations it also reads the character just inserted. If you configure character triggers or enable the built-in "⌫ when deleting" animation, it compares the text around the cursor on the spot (never saved or sent; password fields are ignored).
 
 On first launch, a language picker appears (device language / 日本語 / English / 한국어 / 简体中文). You can change it anytime from the "言語 / Language / 언어 / 语言" button.
 
@@ -13,13 +13,13 @@ On first launch, a language picker appears (device language / 日本語 / Englis
 - **Language**: device language / 日本語 / English / 한국어 / 简体中文 (first-launch dialog + settings button)
 - **Size**: small / medium / large / extra large
 - **Bounce strength**: none (image switch only) to 3 levels
-- **Always on top**: ON = the pet appears automatically when you open other apps; OFF = manual display only
+- **Auto-start on boot**: ON = the pet returns automatically after a device restart; OFF = show it with button ③ after a restart. Use the notification's Stop action to stop it anytime.
 - **Position lock**: ON = taps pass through to the app below and dragging is disabled
 - **Reset position**
 - **Motion**: tilt the phone and the pet slides gently toward gravity and tilts its head. Tilt sensitivity is adjustable with a slider (0–100%). Sensors run only while the pet is visible and the screen is on.
 - **Character presets**: save a set of images + built-in color per named character and switch between them
 - **Multiple characters**: show any number of saved characters at once. Tap the "characters on screen" icons to show/hide; drag each character on screen.
-- **Built-in cat animations**: with no images registered, the pet uses GIF animations for idle, typing, and delete. For `!`, `?`, and space it uses the special animations (`exclamation.gif` / `question.gif` / `space.gif`); if one is missing, it falls back to idle.
+- **Built-in cat animations**: with no images registered, the pet uses GIF animations for idle, typing, and delete. For `!`, `?`, and space it uses the special animations (`exclamation.gif` / `question.gif` / `space.gif`); if one is missing, it falls back to idle. Custom typing-step images take precedence over the built-in special animations.
 - **4 built-in colors** (tints the built-in cat animation)
 - **Images are registered in 3 categories (unlimited count)**
   - **Idle**: shown when not typing. If multiple, one is picked at random each time it returns to idle.

@@ -25,9 +25,14 @@ object Prefs {
     fun getShakeLevel(context: Context): Int = sp(context).getInt("shake", 3)
     fun setShakeLevel(context: Context, level: Int) = sp(context).edit().putInt("shake", level).apply()
 
-    // 常に最前面に固定(=他アプリを開いたときも自動でペットを出す)
+    // 再起動後も自動でペットを戻す
     fun getAlwaysOnTop(context: Context): Boolean = sp(context).getBoolean("alwaysOnTop", true)
     fun setAlwaysOnTop(context: Context, value: Boolean) = sp(context).edit().putBoolean("alwaysOnTop", value).apply()
+
+    // ユーザーが最後に「表示する」と決めた状態。STICKY 復活と起動復元の判断に使う
+    fun getExpectedRunning(context: Context): Boolean = sp(context).getBoolean("expectedRunning", false)
+    fun setExpectedRunning(context: Context, value: Boolean) =
+        sp(context).edit().putBoolean("expectedRunning", value).apply()
 
     // 位置ロック(タップが下のアプリに素通り、ドラッグ不可)
     fun getPositionLocked(context: Context): Boolean = sp(context).getBoolean("positionLocked", false)
@@ -64,10 +69,11 @@ object Prefs {
     fun setPos(context: Context, x: Int, y: Int) = sp(context).edit().putInt("posX", x).putInt("posY", y).apply()
     /** 全キャラの表示位置を初期位置に戻す */
     fun resetPos(context: Context) {
-        setPos(context, 40, 200)
         ensureCharacters(context)
         val arr = readChars(context)
-        for (i in 0 until arr.length()) arr.optJSONObject(i)?.put("x", defaultX(i))?.put("y", defaultY(i))
+        for (i in 0 until arr.length()) {
+            arr.optJSONObject(i)?.put("fx", defaultFx(i))?.put("fy", defaultFy(i))
+        }
         writeChars(context, arr)
     }
 
@@ -272,8 +278,8 @@ object Prefs {
         val steps: List<List<String>>,
         val triggers: List<Trigger>,
         val preset: Int,
-        val x: Int,
-        val y: Int
+        val fx: Double,
+        val fy: Double
     )
 
     private fun readChars(context: Context): JSONArray = try {
@@ -286,9 +292,30 @@ object Prefs {
 
     private fun newId(): String = java.util.UUID.randomUUID().toString()
 
-    /** キャラごとの初期位置(少しずつずらす) */
-    private fun defaultX(i: Int) = 40 + (i % 5) * 90
-    private fun defaultY(i: Int) = 200 + (i % 5) * 90
+    /** キャラごとの初期位置(可動範囲に対する比率。画面サイズや密度が変わっても保つ) */
+    private fun defaultFx(i: Int) = (0.06 + (i % 8) * 0.06).coerceIn(0.0, 0.9)
+    private fun defaultFy(i: Int) = (0.18 + (i % 8) * 0.06).coerceIn(0.0, 0.9)
+
+    private fun legacyDefaultX(i: Int) = 40 + (i % 5) * 90
+    private fun legacyDefaultY(i: Int) = 200 + (i % 5) * 90
+
+    /** 旧 x/y(px) があれば比率へ変換する。既に fx/fy があればそれを clamp して返す */
+    private fun anchorOf(context: Context, o: JSONObject, i: Int): Pair<Double, Double> {
+        if (o.has("fx") && o.has("fy")) {
+            val fx = o.optDouble("fx", defaultFx(i))
+            val fy = o.optDouble("fy", defaultFy(i))
+            return (if (fx.isFinite()) fx.coerceIn(0.0, 1.0) else defaultFx(i)) to
+                (if (fy.isFinite()) fy.coerceIn(0.0, 1.0) else defaultFy(i))
+        }
+        val dm = context.resources.displayMetrics
+        val sizePx = (getSizeDp(context) * dm.density).toInt()
+        val maxX = maxOf(1, dm.widthPixels - sizePx)
+        val maxY = maxOf(1, dm.heightPixels - sizePx)
+        val x = o.optInt("x", legacyDefaultX(i))
+        val y = o.optInt("y", legacyDefaultY(i))
+        return (x.toDouble() / maxX).coerceIn(0.0, 1.0) to
+            (y.toDouble() / maxY).coerceIn(0.0, 1.0)
+    }
 
     /** 編集中キャラの内容(イラスト・カラー)を、既存のキャラデータに書き込む */
     private fun fillFromCurrent(context: Context, o: JSONObject): JSONObject = o
@@ -325,12 +352,17 @@ object Prefs {
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             if (!o.has("id")) { o.put("id", newId()); changed = true }
-            if (!o.has("x") || !o.has("y")) {
-                if (i == active) {
-                    o.put("x", sp(context).getInt("posX", defaultX(i))).put("y", sp(context).getInt("posY", defaultY(i)))
-                } else {
-                    o.put("x", defaultX(i)).put("y", defaultY(i))
+            if (!o.has("fx") || !o.has("fy")) {
+                if (!o.has("x") || !o.has("y")) {
+                    if (i == active) {
+                        o.put("x", sp(context).getInt("posX", legacyDefaultX(i)))
+                            .put("y", sp(context).getInt("posY", legacyDefaultY(i)))
+                    } else {
+                        o.put("x", legacyDefaultX(i)).put("y", legacyDefaultY(i))
+                    }
                 }
+                val (fx, fy) = anchorOf(context, o, i)
+                o.put("fx", fx).put("fy", fy)
                 changed = true
             }
         }
@@ -369,11 +401,12 @@ object Prefs {
         val active = getActiveCharacter(context)
         return (0 until arr.length()).mapNotNull { i ->
             val o = arr.optJSONObject(i) ?: return@mapNotNull null
+            val (fx, fy) = anchorOf(context, o, i)
             if (i == active) {
                 CharData(
                     o.optString("id"), o.optString("n"),
                     getImages(context, CAT_IDLE), getTypingSteps(context), getTriggers(context), getPreset(context),
-                    o.optInt("x", defaultX(i)), o.optInt("y", defaultY(i))
+                    fx, fy
                 )
             } else {
                 val steps = mutableListOf<List<String>>()
@@ -388,7 +421,7 @@ object Prefs {
                 CharData(
                     o.optString("id"), o.optString("n"),
                     parseList(o.optJSONArray("idle")), steps, trs, o.optInt("preset", 0),
-                    o.optInt("x", defaultX(i)), o.optInt("y", defaultY(i))
+                    fx, fy
                 )
             }
         }
@@ -413,13 +446,13 @@ object Prefs {
         sp(context).edit().putString(KEY_SHOWN, JSONArray(order.filter { it in set }).toString()).apply()
     }
 
-    /** キャラの表示位置を保存 */
-    fun setCharPos(context: Context, id: String, x: Int, y: Int) {
+    /** キャラの表示位置を可動範囲に対する比率で保存 */
+    fun setCharAnchor(context: Context, id: String, fx: Double, fy: Double) {
         val arr = readChars(context)
         for (i in 0 until arr.length()) {
             val o = arr.optJSONObject(i) ?: continue
             if (o.optString("id") == id) {
-                o.put("x", x).put("y", y)
+                o.put("fx", fx.coerceIn(0.0, 1.0)).put("fy", fy.coerceIn(0.0, 1.0))
                 writeChars(context, arr)
                 return
             }
@@ -451,7 +484,7 @@ object Prefs {
         saveActive(context)
         val arr = readChars(context)
         val i = arr.length()
-        val base = JSONObject().put("n", name).put("id", newId()).put("x", defaultX(i)).put("y", defaultY(i))
+        val base = JSONObject().put("n", name).put("id", newId()).put("fx", defaultFx(i)).put("fy", defaultFy(i))
         val o = if (copyCurrent) {
             fillFromCurrent(context, base)
         } else {

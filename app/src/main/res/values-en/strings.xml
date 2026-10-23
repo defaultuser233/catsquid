@@ -34,8 +34,8 @@
     <string name="shake_3">Level 3</string>
 
     <string name="label_display">Display</string>
-    <string name="switch_always_on_top_title">Always on top</string>
-    <string name="switch_always_on_top_desc">When ON, the pet appears automatically whenever you open another app. When OFF, it only shows after tapping button ③.</string>
+    <string name="switch_always_on_top_title">Auto-start on boot</string>
+    <string name="switch_always_on_top_desc">When ON, the pet returns automatically after a device restart. When OFF, show it with button ③ after a restart.</string>
     <string name="switch_lock_title">Lock position (pass touches through)</string>
     <string name="switch_lock_desc">When ON, taps pass through to the app underneath and the pet can\'t be dragged.</string>
     <string name="btn_reset_pos">Reset position</string>
@@ -96,6 +96,7 @@
     <string name="btn_add_delete_trigger">+ Add reaction for ⌫ deleting</string>
     <string name="notif_channel">Pet display</string>
     <string name="notif_text">Pet is on screen</string>
+    <string name="notif_action_stop">Stop</string>
     <string name="pick_image_title">Choose an app</string>
     <string name="toast_import_failed">Some images couldn\'t be loaded</string>
     <string name="perm_ok">✓ OK</string>

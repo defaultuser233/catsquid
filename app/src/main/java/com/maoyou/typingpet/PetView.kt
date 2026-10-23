@@ -5,8 +5,6 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
 import android.graphics.Movie
 import android.graphics.Paint
 import android.graphics.RectF
@@ -51,9 +49,11 @@ class PetView(context: Context) : View(context) {
     /** 設定画面のプレビューでは false にして、GIFの1枚目だけを静止表示する */
     var animateBuiltIn = true
 
-    private var idleFrames: List<Bitmap> = emptyList()
-    private var steps: List<List<Bitmap>> = emptyList()
-    private var triggerFrames: List<List<Bitmap>> = emptyList()
+    /** 画像は URI だけ保持し、表示する 1 枚だけを loader で読み込む */
+    private var idleSources: List<String> = emptyList()
+    private var stepSources: List<List<String>> = emptyList()
+    private var triggerSources: List<List<String>> = emptyList()
+    private var sourceLoader: ((String) -> Bitmap?)? = null
 
     private var stepIndex = -1
     private var builtInStep = 0
@@ -79,30 +79,17 @@ class PetView(context: Context) : View(context) {
     /** 画像が1枚も登録されていなければ、内蔵のネコアニメで動く */
     val usesBuiltInArt: Boolean get() = !hasCustomImages
 
-    private val idleMovies: List<Movie> = listOf(
-        "idle_1", "idle_2", "idle_3", "idle_4"
-    ).mapNotNull { loadRawMovie(it) }
-    private val typingMovies: List<Movie> = listOf(
-        "typing_1", "typing_2", "typing_3"
-    ).mapNotNull { loadRawMovie(it) }
+    /** ! / ? / 空白 / 削除 の内蔵アニメを持っているか */
+    val hasBuiltInSpecials: Boolean get() = specialMovies.values.any { it != null }
+
+    private val idleMovies: List<Movie> = BuiltInArt.idle(context)
+    private val typingMovies: List<Movie> = BuiltInArt.typing(context)
     private val specialMovies: Map<String, Movie?> = mapOf(
-        "delete" to loadRawMovie("delete"),
-        "exclamation" to loadRawMovie("exclamation"),
-        "question" to loadRawMovie("question"),
-        "space" to loadRawMovie("space")
+        "delete" to BuiltInArt.special(context, "delete"),
+        "exclamation" to BuiltInArt.special(context, "exclamation"),
+        "question" to BuiltInArt.special(context, "question"),
+        "space" to BuiltInArt.special(context, "space")
     )
-
-    private fun loadRawMovie(name: String): Movie? {
-        val id = resources.getIdentifier(name, "raw", context.packageName)
-        return if (id != 0) loadMovie(id) else null
-    }
-
-    @Suppress("DEPRECATION")
-    private fun loadMovie(resId: Int): Movie? = try {
-        resources.openRawResource(resId).buffered().use { Movie.decodeStream(it) }
-    } catch (e: Exception) {
-        null
-    }
 
     private var scaleXAnim = 1f
     private var scaleYAnim = 1f
@@ -117,8 +104,6 @@ class PetView(context: Context) : View(context) {
         "#FF8FC7" to "#B98FFF",
         "#8FD9A8" to "#FFB26C"
     )
-
-    private val movieTintColors = listOf("#000000", "#6CA8FF", "#FF8FC7", "#8FD9A8")
 
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val cheekPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -136,14 +121,21 @@ class PetView(context: Context) : View(context) {
     init { goIdle() }
 
     /**
-     * 画像一式を差し替える(設定変更時にOverlayServiceから呼ばれる)。
+     * 画像一式を URI で差し替える(設定変更時にOverlayServiceから呼ばれる)。
      * triggers は Prefs.getTriggers と同じ並びにすること(番号で対応づけるため)。
+     * loader は表示する 1 枚だけを読み込む。
      */
-    fun setImages(idle: List<Bitmap>, steps: List<List<Bitmap>>, triggers: List<List<Bitmap>>) {
-        idleFrames = idle
-        this.steps = steps.filter { it.isNotEmpty() }
-        triggerFrames = triggers
-        hasCustomImages = idle.isNotEmpty() || this.steps.isNotEmpty() || triggers.any { it.isNotEmpty() }
+    fun setImageSources(
+        idle: List<String>,
+        steps: List<List<String>>,
+        triggers: List<List<String>>,
+        loader: (String) -> Bitmap?
+    ) {
+        idleSources = idle
+        stepSources = steps.filter { it.isNotEmpty() }
+        triggerSources = triggers
+        sourceLoader = loader
+        hasCustomImages = idle.isNotEmpty() || stepSources.isNotEmpty() || triggers.any { it.isNotEmpty() }
         goIdle()
     }
 
@@ -231,7 +223,8 @@ class PetView(context: Context) : View(context) {
         stepIndex = -1
         builtInStep = -1
         builtInFace = 0
-        val idleBmp = idleFrames.randomOrNull() ?: steps.firstOrNull()?.randomOrNull()
+        val uri = idleSources.randomOrNull() ?: stepSources.firstOrNull()?.randomOrNull()
+        val idleBmp = uri?.let { sourceLoader?.invoke(it) }
         if (idleBmp != null) {
             shown = idleBmp
             shownMovie = null
@@ -245,34 +238,41 @@ class PetView(context: Context) : View(context) {
     /**
      * 打鍵イベントごとに呼ぶ。trigger に「文字で切り替え」の番号を渡すと、その画像からランダムで表示する。
      */
-    fun react(trigger: Int = -1, inserted: String? = null) {
+    fun react(trigger: Int = -1, inserted: String? = null, advance: Int = 1) {
         revertHandler.removeCallbacks(revertRunnable)
         activeState = true
         lastReactAt = SystemClock.uptimeMillis()
+        val step = advance.coerceAtLeast(0)
 
-        if (steps.isNotEmpty()) stepIndex = (stepIndex + 1) % steps.size
-        builtInStep = (builtInStep + 1) % maxOf(typingMovies.size, 1)
-        builtInFace = (builtInFace % 3) + 1 // 内蔵イラストは入力中 表情1〜3を循環
+        if (step > 0) {
+            if (stepSources.isNotEmpty()) stepIndex = (stepIndex + step) % stepSources.size
+            builtInStep = (builtInStep + step) % maxOf(typingMovies.size, 1)
+            builtInFace = (builtInFace + step - 1) % 3 + 1 // 内蔵イラストは入力中 表情1〜3を循環
+        }
 
-        val triggerBmp = if (trigger >= 0) triggerFrames.getOrNull(trigger)?.randomOrNull() else null
-        val stepBmp = steps.getOrNull(stepIndex)?.randomOrNull()
+        val triggerUri = if (trigger >= 0) triggerSources.getOrNull(trigger)?.randomOrNull() else null
+        val stepUri = if (step > 0) stepSources.getOrNull(stepIndex)?.randomOrNull() else null
+        val triggerBmp = triggerUri?.let { sourceLoader?.invoke(it) }
+        val stepBmp = stepUri?.let { sourceLoader?.invoke(it) }
         val bmp = triggerBmp ?: stepBmp
         val special = specialKeyName(inserted)
+        val specialMovie = if (special != null) specialMovies[special] else null
+        val changed = bmp != null || special != null || step > 0
 
         if (bmp != null) {
             shown = bmp
             shownMovie = null
         } else if (special != null) {
-            val movie = specialMovies[special]
-            if (movie != null) {
+            if (specialMovie != null) {
                 shown = null
-                shownMovie = movie
+                shownMovie = specialMovie
                 movieStart = SystemClock.uptimeMillis()
-                movie.setTime(0)
+                specialMovie.setTime(0)
             } else {
+                // question.gif などが無い場合は待機に戻す
                 showIdleFallback()
             }
-        } else {
+        } else if (step > 0) {
             shown = null
             val typing = typingMovies.getOrNull(builtInStep)
             if (typing != null) showMovie(typing) else showIdleFallback()
@@ -281,14 +281,15 @@ class PetView(context: Context) : View(context) {
             reactLogs++
             DiagLog.log(
                 context,
-                "PetView.react trigger=$trigger step=$builtInStep typing=${typingMovies.size} idle=${idleMovies.size} bmp=${bmp != null} movie=${shownMovie != null} special=$special"
+                "PetView.react trigger=$trigger step=$builtInStep advance=$step typing=${typingMovies.size} idle=${idleMovies.size} bmp=${bmp != null} movie=${shownMovie != null} special=$special"
             )
         }
-        invalidate()
+        if (changed) {
+            invalidate()
+            if (shakeLevel > 0) playBounce()
+        }
 
         revertHandler.postDelayed(revertRunnable, IDLE_REVERT_DELAY_MS)
-
-        if (shakeLevel > 0) playBounce()
     }
 
     /** ! / ? / 空白に対応する内蔵アニメの名前。なければ null */
@@ -448,23 +449,7 @@ class PetView(context: Context) : View(context) {
     private fun tintedMoviePaint(): Paint {
         if (tintPreset == preset) return moviePaint
         tintPreset = preset
-        val base = Color.parseColor(movieTintColors[preset.coerceIn(0, movieTintColors.size - 1)])
-        val r = Color.red(base) / 255f
-        val g = Color.green(base) / 255f
-        val b = Color.blue(base) / 255f
-        val lr = 0.299f
-        val lg = 0.587f
-        val lb = 0.114f
-        moviePaint.colorFilter = ColorMatrixColorFilter(
-            ColorMatrix(
-                floatArrayOf(
-                    lr * (1 - r), lg * (1 - r), lb * (1 - r), 0f, r * 255f,
-                    lr * (1 - g), lg * (1 - g), lb * (1 - g), 0f, g * 255f,
-                    lr * (1 - b), lg * (1 - b), lb * (1 - b), 0f, b * 255f,
-                    0f, 0f, 0f, 1f, 0f
-                )
-            )
-        )
+        moviePaint.colorFilter = BuiltInArt.tintFilter(preset)
         return moviePaint
     }
 

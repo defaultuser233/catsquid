@@ -34,8 +34,8 @@
     <string name="shake_3">3단계</string>
 
     <string name="label_display">표시</string>
-    <string name="switch_always_on_top_title">항상 위에 고정</string>
-    <string name="switch_always_on_top_desc">ON이면 다른 앱을 열 때마다 펫이 자동으로 나타납니다. OFF면 ③ 버튼을 눌렀을 때만 표시됩니다.</string>
+    <string name="switch_always_on_top_title">부팅 시 자동 표시</string>
+    <string name="switch_always_on_top_desc">ON이면 기기를 다시 시작해도 펫이 자동으로 돌아옵니다. OFF면 다시 시작한 뒤 ③ 버튼으로 표시하세요.</string>
     <string name="switch_lock_title">위치 잠금(터치 통과)</string>
     <string name="switch_lock_desc">ON으로 하면 터치가 아래 앱으로 그대로 전달되고, 드래그로 이동할 수 없습니다.</string>
     <string name="btn_reset_pos">위치 초기화</string>
@@ -96,6 +96,7 @@
     <string name="btn_add_delete_trigger">+ ⌫ 지울 때 반응 추가</string>
     <string name="notif_channel">펫 표시</string>
     <string name="notif_text">펫 표시 중</string>
+    <string name="notif_action_stop">중지</string>
     <string name="pick_image_title">이미지를 고를 앱</string>
     <string name="toast_import_failed">불러오지 못한 이미지가 있습니다</string>
     <string name="perm_ok">✓ OK</string>

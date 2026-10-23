@@ -34,8 +34,8 @@
     <string name="shake_3">3 档</string>
 
     <string name="label_display">显示</string>
-    <string name="switch_always_on_top_title">始终置顶</string>
-    <string name="switch_always_on_top_desc">开启后，打开其他应用时宠物也会自动出现。关闭时只有点击③按钮才会显示。</string>
+    <string name="switch_always_on_top_title">开机自动显示</string>
+    <string name="switch_always_on_top_desc">开启后，设备重启时宠物会自动恢复显示。关闭时，重启后需点击③按钮显示。</string>
     <string name="switch_lock_title">位置锁定（点击穿透）</string>
     <string name="switch_lock_desc">开启后，点击会穿透到下层的应用，也无法拖动宠物。</string>
     <string name="btn_reset_pos">重置位置</string>
@@ -95,6 +95,7 @@
     <string name="btn_add_delete_trigger">＋ 添加“⌫ 删除时”的反应</string>
     <string name="notif_channel">宠物显示</string>
     <string name="notif_text">正在显示宠物</string>
+    <string name="notif_action_stop">停止</string>
     <string name="pick_image_title">选择图片的应用</string>
     <string name="toast_import_failed">有些图片无法读取</string>
     <string name="perm_ok">✓ OK</string>

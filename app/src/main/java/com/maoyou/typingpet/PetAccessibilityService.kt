@@ -16,6 +16,10 @@ import android.view.inputmethod.InputMethodManager
 
 class PetAccessibilityService : AccessibilityService() {
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(LocaleHelper.wrap(newBase))
+    }
+
     private var loggedEvents = 0
     private var loggedNoOverlay = false
     private var reactionLogs = 0
@@ -25,7 +29,9 @@ class PetAccessibilityService : AccessibilityService() {
     private var imePackages: Set<String> = emptySet()
     private var imePackagesAt = 0L
     private var lastTextEventAt = 0L
-    private var lastImeReactAt = 0L
+
+    /** IME が出したキー入力パルス。直後のテキストイベントが同じキーを二重に数えないよう消費する */
+    private val recentImePulses = ArrayDeque<Long>()
     private val seenImeEvents = HashSet<String>()
 
     /** 直近にイベントを送ってくる入力法。直近にイベントがある間はウィンドウ走査を止める */
@@ -35,6 +41,9 @@ class PetAccessibilityService : AccessibilityService() {
     private var lastDisabledNotifyAt = 0L
 
     companion object {
+        private const val IME_CREDIT_WINDOW_MS = 400L
+        private const val MAX_ADVANCE = 8
+
         @Volatile var connected = false
             private set
 
@@ -80,9 +89,9 @@ class PetAccessibilityService : AccessibilityService() {
         imeWatcher = ImeWindowWatcher(
             this,
             isActive = {
-                // イベントを送ってくる入力法では走査しない(電池と ROM 対策)。5秒沈黙したら再開
+                // イベントを送ってくる入力法では走査しない(電池と ROM 対策)。2秒沈黙したら再開
                 OverlayService.instance != null &&
-                    SystemClock.uptimeMillis() - lastEventImeAt > 5000L
+                    SystemClock.uptimeMillis() - lastEventImeAt > 2000L
             },
             onKeyActivity = { pkg -> handleImePollActivity(pkg) }
         ).also { it.start() }
@@ -128,14 +137,18 @@ class PetAccessibilityService : AccessibilityService() {
             return
         }
 
-        // 表示中のキャラに文字の反応も「消したとき」もない / パスワード欄 → 中身は一切見ない
+        // パスワード欄は中身を見ない。内蔵の !/?/空白 を出すため、トリガーがなくても直近の入力だけは読む
         val maxLen = OverlayService.maxKeyLength
         val watchDelete = OverlayService.watchDelete
+        val watchSpecial = OverlayService.watchSpecial
         if (reactionLogs < 5) {
             reactionLogs++
-            DiagLog.log(this, "handle text event: maxLen=$maxLen watchDelete=$watchDelete")
+            DiagLog.log(
+                this,
+                "handle text event: maxLen=$maxLen watchDelete=$watchDelete watchSpecial=$watchSpecial"
+            )
         }
-        if (event.isPassword || (maxLen <= 0 && !watchDelete)) {
+        if (event.isPassword || (maxLen <= 0 && !watchDelete && !watchSpecial)) {
             OverlayService.reactIfRunning()
             return
         }
@@ -161,14 +174,16 @@ class PetAccessibilityService : AccessibilityService() {
             return
         }
 
+        val advance = textAdvance(inserted)
+
         if (maxLen <= 0) {
-            OverlayService.reactInserted(inserted)
+            OverlayService.reactInserted(inserted, advance)
             return
         }
 
         // 入力位置の直前数文字(登録文字の最大長ぶん)だけを切り出して各キャラに渡す(保存・送信はしない)
         val winStart = maxOf(0, change.start - (maxLen - 1))
-        OverlayService.reactText(after.substring(winStart, change.end), change.start - winStart, inserted)
+        OverlayService.reactText(after.substring(winStart, change.end), change.start - winStart, inserted, advance)
     }
 
     /**
@@ -195,16 +210,11 @@ class PetAccessibilityService : AccessibilityService() {
 
         if (OverlayService.instance == null) return
 
-        // 文字が直接届く環境(英語入力など)では二重に反応しない
-        if (now - lastTextEventAt < 150L) return
-        if (now - lastImeReactAt < 120L) return
-        lastImeReactAt = now
-
         if (imeLogs < 5) {
             imeLogs++
             DiagLog.log(this, "ime key activity pkg=$pkg")
         }
-        OverlayService.reactIfRunning()
+        onImePulse()
     }
 
     private fun looksLikeKeyboard(pkg: String): Boolean {
@@ -216,21 +226,47 @@ class PetAccessibilityService : AccessibilityService() {
     /**
      * キーボードウィンドウの走査で見つけたキー入力。
      * イベントを送ってくる入力法(vivo など)では二重になるので、
-     * 直近5秒にイベントが来ているパッケージでは走査側を無視する。
+     * 直近2秒にイベントが来ているパッケージでは走査側を無視する。
      */
     private fun handleImePollActivity(pkg: String) {
         if (pkg !in enabledImePackages()) return
         if (OverlayService.instance == null) return
         val now = SystemClock.uptimeMillis()
-        if (pkg == lastEventImePkg && now - lastEventImeAt < 5000L) return
-        if (now - lastTextEventAt < 150L) return
-        if (now - lastImeReactAt < 120L) return
-        lastImeReactAt = now
+        if (pkg == lastEventImePkg && now - lastEventImeAt < 2000L) return
         if (imeLogs < 5) {
             imeLogs++
             DiagLog.log(this, "ime poll key pkg=$pkg")
         }
-        OverlayService.reactIfRunning()
+        onImePulse()
+    }
+
+    /**
+     * IME のキー入力を暫定の 1 回として数える。
+     * 直後にテキストイベントが来る環境では、そのテキストがこのパルスを消費するので二重にならない。
+     * テキストが先に来た場合は、そのキーは既に数えられているのでパルスを捨てる。
+     */
+    private fun onImePulse() {
+        if (OverlayService.instance == null) return
+        val now = SystemClock.uptimeMillis()
+        if (now - lastTextEventAt < 150L) return
+        recentImePulses.addLast(now)
+        while (recentImePulses.size > 16) recentImePulses.removeFirst()
+        OverlayService.reactKeys(1)
+    }
+
+    /** テキストイベントが直近の IME パルスを何回分カバーするか。残りだけステップを進める */
+    private fun textAdvance(inserted: String): Int {
+        val now = SystemClock.uptimeMillis()
+        while (recentImePulses.isNotEmpty() && now - recentImePulses.first() > IME_CREDIT_WINDOW_MS) {
+            recentImePulses.removeFirst()
+        }
+        val chars = inserted.codePointCount(0, inserted.length).coerceIn(1, MAX_ADVANCE)
+        var covered = 0
+        while (covered < chars && recentImePulses.isNotEmpty()) {
+            recentImePulses.removeLast()
+            covered++
+        }
+        return (chars - covered).coerceIn(0, MAX_ADVANCE)
     }
 
     /** 有効なキーボード(入力メソッド)のパッケージ一覧。30秒キャッシュ */
@@ -304,13 +340,14 @@ class PetAccessibilityService : AccessibilityService() {
         if (lastDisabledNotifyAt != 0L && now - lastDisabledNotifyAt < 10 * 60_000L) return
         lastDisabledNotifyAt = now
         try {
+            val c = LocaleHelper.wrap(this)
             val channelId = "accessibility"
             val nm = getSystemService(NotificationManager::class.java) ?: return
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 nm.createNotificationChannel(
                     NotificationChannel(
                         channelId,
-                        getString(R.string.notif_channel_accessibility),
+                        c.getString(R.string.notif_channel_accessibility),
                         NotificationManager.IMPORTANCE_DEFAULT
                     )
                 )
@@ -329,8 +366,8 @@ class PetAccessibilityService : AccessibilityService() {
                 2,
                 builder
                     .setSmallIcon(R.drawable.ic_notif_paw)
-                    .setContentTitle(getString(R.string.notif_accessibility_off_title))
-                    .setContentText(getString(R.string.notif_accessibility_off_text))
+                    .setContentTitle(c.getString(R.string.notif_accessibility_off_title))
+                    .setContentText(c.getString(R.string.notif_accessibility_off_text))
                     .setContentIntent(open)
                     .setAutoCancel(true)
                     .build()
