@@ -112,6 +112,7 @@
     <string name="notif_action_stop">停止</string>
     <string name="pick_image_title">画像を選ぶアプリ</string>
     <string name="toast_import_failed">読み込めなかった画像があります</string>
+    <string name="toast_importing_images">画像を取り込み中…</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_connecting">接続中…</string>
     <string name="perm_disconnected">切断</string>

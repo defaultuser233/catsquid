@@ -111,6 +111,7 @@
     <string name="notif_action_stop">停止</string>
     <string name="pick_image_title">选择图片的应用</string>
     <string name="toast_import_failed">有些图片无法读取</string>
+    <string name="toast_importing_images">正在导入图片…</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_connecting">连接中…</string>
     <string name="perm_disconnected">已断开</string>

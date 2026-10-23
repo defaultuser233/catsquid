@@ -112,6 +112,7 @@
     <string name="notif_action_stop">중지</string>
     <string name="pick_image_title">이미지를 고를 앱</string>
     <string name="toast_import_failed">불러오지 못한 이미지가 있습니다</string>
+    <string name="toast_importing_images">이미지 가져오는 중…</string>
     <string name="perm_ok">✓ OK</string>
     <string name="perm_connecting">연결 중…</string>
     <string name="perm_disconnected">끊김</string>

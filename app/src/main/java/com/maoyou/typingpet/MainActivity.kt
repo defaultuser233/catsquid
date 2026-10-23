@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
@@ -142,20 +143,30 @@ class MainActivity : Activity() {
         return Intent.createChooser(get, getString(R.string.pick_image_title))
     }
 
-    /** 選んだ画像をアプリ内(images フォルダ)にコピーして、その場所を返す。失敗したら null */
+    /** 選んだ画像をアプリ内(images フォルダ)にコピーし、デコード可能なものだけ返す */
     private fun importImage(uri: Uri): String? {
+        val dir = File(filesDir, "images").apply { mkdirs() }
+        val dest = File(dir, UUID.randomUUID().toString())
         return try {
-            val dir = File(filesDir, "images").apply { mkdirs() }
-            val file = File(dir, UUID.randomUUID().toString())
+            val stat = contentResolver.openFileDescriptor(uri, "r")?.use { it.statSize } ?: -1L
+            if (stat > ImageLoader.MAX_IMAGE_BYTES) return null
             val input = contentResolver.openInputStream(uri) ?: return null
-            input.use { inp -> file.outputStream().use { out -> inp.copyTo(out) } }
-            if (file.length() == 0L) {
-                file.delete()
-                null
-            } else {
-                Uri.fromFile(file).toString()
+            input.use { inp -> dest.outputStream().use { inp.copyTo(it) } }
+            if (dest.length() == 0L || dest.length() > ImageLoader.MAX_IMAGE_BYTES) {
+                dest.delete()
+                return null
             }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            dest.inputStream().use { BitmapFactory.decodeStream(it, null, bounds) }
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0 ||
+                bounds.outWidth.toLong() * bounds.outHeight > ImageLoader.MAX_IMAGE_PIXELS
+            ) {
+                dest.delete()
+                return null
+            }
+            Uri.fromFile(dest).toString()
         } catch (e: Exception) {
+            dest.delete()
             null
         }
     }
@@ -1650,33 +1661,44 @@ class MainActivity : Activity() {
         if (uris.isEmpty()) return
 
         // Googleフォトなどから選んだ画像は、あとで読めなくなることがあるのでアプリ内にコピーして使う
-        val added = uris.mapNotNull { importImage(it) }
-        if (added.size < uris.size) {
-            Toast.makeText(this, getString(R.string.toast_import_failed), Toast.LENGTH_SHORT).show()
-        }
-        if (added.isEmpty()) return
+        val category = pendingCategory
+        val index = pendingIndex
+        pendingCategory = ""
+        pendingIndex = -1
+        Toast.makeText(this, getString(R.string.toast_importing_images), Toast.LENGTH_SHORT).show()
 
-        when (pendingCategory) {
-            CAT_STEP -> {
-                val s = Prefs.getTypingSteps(this)
-                if (pendingIndex in s.indices) s[pendingIndex].addAll(added) else s.add(added.toMutableList())
-                Prefs.setTypingSteps(this, s)
-            }
-            CAT_TRIGGER -> {
-                val all = Prefs.getTriggers(this)
-                if (pendingIndex in all.indices) {
-                    all[pendingIndex].images.addAll(added)
-                    Prefs.setTriggers(this, all)
+        Thread {
+            val added = uris.mapNotNull { importImage(it) }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (added.size < uris.size) {
+                    Toast.makeText(this, getString(R.string.toast_import_failed), Toast.LENGTH_SHORT).show()
                 }
-            }
-            Prefs.CAT_IDLE -> {
-                val list = Prefs.getImages(this, Prefs.CAT_IDLE)
-                list.addAll(added)
-                Prefs.setImages(this, Prefs.CAT_IDLE, list)
-            }
-        }
+                if (added.isEmpty()) return@runOnUiThread
 
-        imagesChanged()
+                when (category) {
+                    CAT_STEP -> {
+                        val s = Prefs.getTypingSteps(this)
+                        if (index in s.indices) s[index].addAll(added) else s.add(added.toMutableList())
+                        Prefs.setTypingSteps(this, s)
+                    }
+                    CAT_TRIGGER -> {
+                        val all = Prefs.getTriggers(this)
+                        if (index in all.indices) {
+                            all[index].images.addAll(added)
+                            Prefs.setTriggers(this, all)
+                        }
+                    }
+                    Prefs.CAT_IDLE -> {
+                        val list = Prefs.getImages(this, Prefs.CAT_IDLE)
+                        list.addAll(added)
+                        Prefs.setImages(this, Prefs.CAT_IDLE, list)
+                    }
+                }
+
+                imagesChanged()
+            }
+        }.start()
     }
 
     // ---------- 共通UI部品 ----------
