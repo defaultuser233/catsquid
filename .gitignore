@@ -4,3 +4,7 @@ app/build/
 .gradle/
 local.properties
 dist/
+desktop/libs/
+desktop/build/
+desktop/.gradle/
+desktop/.kotlin/

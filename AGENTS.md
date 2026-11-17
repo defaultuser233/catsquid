@@ -9,6 +9,16 @@
 - 手動で `aapt2 link` する場合も、`version.properties` の `versionCode` / `versionName` をそのまま渡す。新しい APK で同じ `versionCode` を再利用しない。
 - GitHub Actions はコミット済みの `version.properties` を使う。CI の成果物も新しいバージョンにしたい場合は、push 前に bump してコミットする。
 
+## Desktop (Linux / Windows)
+
+- Module: `desktop/` (Kotlin/JVM + Swing), package root `com.maoyou.typingpet.desktop`, entry point `MainKt`. Animation GIFs are read from `app/src/main/res/raw/*.gif` and packaged in the jar under `animations/`.
+- Version: the desktop build reads the same `version.properties` as the Android app. Do not bump the version for desktop-only changes; bump it when a release also includes Android changes.
+- Local build: `sh scripts/build_desktop.sh`. It downloads `desktop/libs/jnativehook-2.2.2.jar` from Maven Central if missing, compiles with the system `kotlinc`, and writes:
+  - `dist/desktop/catsquid-desktop-<version>.jar` (fat jar)
+  - `dist/desktop/catsquid-desktop-<version>-linux.zip` and `-windows.zip`, created by `scripts/package_desktop_dist.sh`
+- The desktop module has its own standalone Gradle build (`desktop/`, Kotlin JVM plugin) used by CI; do not add it to the Android root build, and do not build the Android app through it.
+- jpackage/CI limitation: self-contained app images and installers must be built on their target OS (Windows on Windows, Linux on Linux). `.github/workflows/desktop.yml` builds both Linux and Windows artifacts, including optional app images.
+
 ## リリース
 
 - 署名: `app/typingpet-release.jks`（alias: `typingpet`）。リポジトリにはコミットしない。

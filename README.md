@@ -27,6 +27,15 @@ A floating cat pet overlay for Android that reacts to typing, tilt, and touch.
 - Short distribution path: run `sh scripts/package_apk.sh` → `dist/catsquid-<version>.apk`.
 - Details: [AGENTS.md](AGENTS.md).
 
+### Desktop (Linux / Windows)
+
+A floating desktop pet (Kotlin/JVM + Swing) that reacts to global typing and shares the Android app's version.
+
+- Local build: `sh scripts/build_desktop.sh` (Java 21 and the system `kotlinc`; downloads JNativeHook into `desktop/libs/` on first run).
+- Outputs: `dist/desktop/catsquid-desktop-<version>.jar` plus `dist/desktop/catsquid-desktop-<version>-linux.zip` and `-windows.zip`, each with `run.sh` / `run.bat` and a short README.
+- The global key hook uses X11; on Wayland it only sees XWayland windows.
+- CI (`.github/workflows/desktop.yml`) builds the Linux and Windows artifacts, including optional self-contained app images.
+
 ## Documentation
 
 | Language | README |
