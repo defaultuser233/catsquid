@@ -23,10 +23,17 @@ jobs:
       - name: Restore signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret KEYSTORE_BASE64 が未登録です"
-            exit 1
+            echo "::warning::KEYSTORE_BASE64 が未登録のため、debug 鍵で署名します"
+            exit 0
+          fi
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::warning::署名用 Secrets が不足しているため、debug 鍵で署名します"
+            exit 0
           fi
           echo "$KEYSTORE_BASE64" | base64 -d > app/typingpet.jks
 

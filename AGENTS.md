@@ -8,6 +8,7 @@
 - `version.properties` がバージョンの唯一の情報源。`app/build.gradle` はこのファイルを読む。
 - 手動で `aapt2 link` する場合も、`version.properties` の `versionCode` / `versionName` をそのまま渡す。新しい APK で同じ `versionCode` を再利用しない。
 - GitHub Actions はコミット済みの `version.properties` を使う。CI の成果物も新しいバージョンにしたい場合は、push 前に bump してコミットする。
+- CI の署名は Secrets（`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`）を使う。未登録の場合は失敗せず debug 鍵で署名し、警告を出す。
 
 ## Desktop (Linux / Windows)
 
