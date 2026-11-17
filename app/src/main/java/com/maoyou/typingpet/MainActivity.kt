@@ -12,6 +12,7 @@ import android.graphics.BitmapFactory
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.hardware.Sensor
@@ -726,10 +727,7 @@ class MainActivity : Activity() {
                 textSize = 12f
                 setTextColor(Color.WHITE)
                 setPadding(dp(10), dp(3), dp(10), dp(3))
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(12).toFloat()
-                    setColor(if (shown.isEmpty()) sub else accentText)
-                }
+                background = rounded(if (shown.isEmpty()) sub else accentText, 12)
             })
             addView(head)
             addView(descLabel(getString(R.string.desc_show_chars)))
@@ -1804,13 +1802,14 @@ class MainActivity : Activity() {
 
     // ---------- 共通UI部品 ----------
 
-    /** 角丸の背景(stroke を渡すと細い枠線つき) */
-    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null): GradientDrawable =
-        GradientDrawable().apply {
-            setColor(color)
-            cornerRadius = dp(radiusDp).toFloat()
-            if (stroke != null) setStroke(dp(1), stroke)
-        }
+    /** 連続曲率(squircle)の角丸背景。stroke を渡すと細い枠線つき */
+    private fun rounded(color: Int, radiusDp: Int, stroke: Int? = null): Drawable =
+        SquircleDrawable(
+            fillColor = color,
+            radiusPx = dp(radiusDp).toFloat(),
+            strokeWidthPx = if (stroke != null) dp(1) else 0,
+            strokeColor = stroke ?: Color.TRANSPARENT,
+        )
 
     /** 小さいラベル(「編集中」など) */
     private fun pill(text: String, fg: Int, bgColor: Int) = TextView(this).apply {
@@ -1959,11 +1958,7 @@ class MainActivity : Activity() {
         if (small) v.setPadding(dp(12), dp(7), dp(12), dp(7)) else v.setPadding(dp(16), dp(13), dp(16), dp(13))
         v.background = RippleDrawable(
             ColorStateList.valueOf(Color.parseColor("#1F000000")),
-            GradientDrawable().apply {
-                setColor(fill)
-                cornerRadius = dp(if (small) 18 else 12).toFloat()
-                if (stroke != null) setStroke(dp(1), stroke)
-            },
+            rounded(fill, if (small) 18 else 12, stroke),
             null
         )
 

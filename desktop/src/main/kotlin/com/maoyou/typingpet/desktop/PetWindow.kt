@@ -317,17 +317,13 @@ class PetWindow(private val config: AppConfig) : AutoCloseable {
     }
 
     private fun showPopup(e: MouseEvent) {
-        val menu = JPopupMenu()
-        val settings = JMenuItem("设置")
-        settings.addActionListener { showSettings() }
-        val quit = JMenuItem("退出")
-        quit.addActionListener {
+        val menu = ApplePopupMenu()
+        menu.addItem("设置") { showSettings() }
+        menu.addSeparatorLine()
+        menu.addItem("退出") {
             close()
             System.exit(0)
         }
-        menu.add(settings)
-        menu.addSeparator()
-        menu.add(quit)
         menu.show(e.component, e.x, e.y)
     }
 
@@ -434,82 +430,17 @@ private class HookUnavailableDialog(
     owner: Frame?,
     reason: String?,
     onAction: (KeyAction) -> Unit,
-) : JDialog(owner, "⚠ 无法捕获全局按键", false) {
+) : JDialog(owner, "无法捕获全局按键", false) {
 
     init {
-        defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
-        isResizable = false
-        isAlwaysOnTop = true
-
-        val root = JPanel(java.awt.BorderLayout(0, 12))
-        root.border = BorderFactory.createEmptyBorder(16, 18, 14, 18)
-
-        val heading = JLabel("全局按键捕获启动失败")
-        heading.font = heading.font.deriveFont(Font.BOLD, heading.font.size2D + 1f)
-        heading.alignmentX = Component.LEFT_ALIGNMENT
-
-        val reasonArea = JTextArea(reason?.takeIf { it.isNotBlank() } ?: "未知原因")
-        reasonArea.isEditable = false
-        reasonArea.isOpaque = false
-        reasonArea.lineWrap = true
-        reasonArea.wrapStyleWord = true
-        reasonArea.rows = 2
-        reasonArea.columns = 38
-        reasonArea.alignmentX = Component.LEFT_ALIGNMENT
-        reasonArea.maximumSize = Dimension(520, reasonArea.preferredSize.height)
-
-        val hint = JLabel(
-            "<html>Linux 提示：全局按键需要 X11 会话。Wayland 会阻止应用监听系统按键；" +
-                "<br>请在登录界面选择 “X11” 会话后重新启动猫鱿。</html>",
-        )
-        hint.foreground = Color(0x8A, 0x6D, 0x3B)
-        hint.alignmentX = Component.LEFT_ALIGNMENT
-
-        val testLabel = JLabel("在下面的输入框里打字，宠物仍会作出反应：")
-        testLabel.alignmentX = Component.LEFT_ALIGNMENT
-
-        val testField = JTextField(24)
-        testField.alignmentX = Component.LEFT_ALIGNMENT
-        testField.maximumSize = Dimension(520, testField.preferredSize.height)
-        testField.addKeyListener(object : KeyAdapter() {
-            override fun keyPressed(e: KeyEvent) {
-                // 文字キーは keyTyped 側で扱い、二重反応を避ける
-                val action = KeyClassifier.fromAwt(e.keyCode, e.keyChar)
-                if (action == KeyAction.Delete) onAction(action)
-            }
-
-            override fun keyTyped(e: KeyEvent) {
-                val char = e.keyChar
-                if (char >= ' ' && char != '\u007F') onAction(KeyClassifier.classify(char))
-            }
-        })
+        styleAppleWindow()
+        val panel = HookPanel(reason, onAction) { dispose() }
+        contentPane = panel
         addWindowListener(object : WindowAdapter() {
             override fun windowOpened(e: WindowEvent) {
-                testField.requestFocusInWindow()
+                panel.testField.requestFocusInWindow()
             }
         })
-
-        val box = JPanel()
-        box.layout = BoxLayout(box, BoxLayout.Y_AXIS)
-        box.add(heading)
-        box.add(Box.createVerticalStrut(8))
-        box.add(reasonArea)
-        box.add(Box.createVerticalStrut(10))
-        box.add(hint)
-        box.add(Box.createVerticalStrut(14))
-        box.add(testLabel)
-        box.add(Box.createVerticalStrut(6))
-        box.add(testField)
-
-        val closeButton = JButton("关闭")
-        closeButton.addActionListener { dispose() }
-        val bottom = JPanel(java.awt.FlowLayout(java.awt.FlowLayout.RIGHT))
-        bottom.add(closeButton)
-
-        root.add(box, java.awt.BorderLayout.CENTER)
-        root.add(bottom, java.awt.BorderLayout.SOUTH)
-        contentPane = root
-
         rootPane.registerKeyboardAction(
             { dispose() },
             KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
@@ -517,5 +448,6 @@ private class HookUnavailableDialog(
         )
         pack()
         setLocationRelativeTo(owner)
+        enableWindowDrag()
     }
 }

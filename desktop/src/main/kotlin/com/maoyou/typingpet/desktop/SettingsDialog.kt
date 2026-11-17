@@ -1,8 +1,8 @@
 package com.maoyou.typingpet.desktop
 
 import java.awt.BorderLayout
+import java.awt.Dimension
 import java.awt.FlowLayout
-import java.awt.Font
 import java.awt.Frame
 import java.awt.GridBagConstraints
 import java.awt.GridBagLayout
@@ -11,143 +11,162 @@ import java.awt.event.KeyEvent
 import javax.swing.BorderFactory
 import javax.swing.Box
 import javax.swing.BoxLayout
-import javax.swing.JButton
-import javax.swing.JCheckBox
-import javax.swing.JComboBox
 import javax.swing.JComponent
 import javax.swing.JDialog
-import javax.swing.JLabel
 import javax.swing.JPanel
-import javax.swing.JSlider
 import javax.swing.KeyStroke
-import javax.swing.WindowConstants
+import javax.swing.SwingConstants
 import kotlin.math.roundToInt
 
-/** 表示設定。変更は即座にペットへ反映して保存する（モードレス）。 */
+/** macOS 風の角丸設定ウィンドウ。変更は即座に反映して保存する（モードレス）。 */
 class SettingsDialog(
     owner: Frame?,
-    private val config: AppConfig,
-    private val onApply: () -> Unit,
-) : JDialog(owner, "🐾 猫鱿 设置", false) {
-
-    private val sizeBox = JComboBox(arrayOf("小", "中", "大"))
-    private val alwaysOnTopBox = JCheckBox("总在最前")
-    private val opacitySlider = JSlider(30, 100)
-    private val opacityLabel = JLabel("100%")
+    config: AppConfig,
+    onApply: () -> Unit,
+) : JDialog(owner, "猫鱿 设置", false) {
 
     init {
-        defaultCloseOperation = WindowConstants.DISPOSE_ON_CLOSE
-        isResizable = false
-        isAlwaysOnTop = true
-
-        val root = JPanel(BorderLayout(0, 14))
-        root.border = BorderFactory.createEmptyBorder(16, 18, 14, 18)
-
-        val title = JLabel("显示")
-        title.font = title.font.deriveFont(Font.BOLD, title.font.size2D + 1f)
-
-        val form = JPanel(GridBagLayout())
-        addRow(form, 0, "大小", sizeBox)
-
-        val topRow = GridBagConstraints().apply {
-            gridx = 0
-            gridy = 1
-            gridwidth = 2
-            anchor = GridBagConstraints.LINE_START
-            insets = Insets(8, 0, 4, 0)
-        }
-        form.add(alwaysOnTopBox, topRow)
-
-        val sliderRow = JPanel()
-        sliderRow.layout = BoxLayout(sliderRow, BoxLayout.X_AXIS)
-        sliderRow.add(opacitySlider)
-        sliderRow.add(Box.createHorizontalStrut(8))
-        sliderRow.add(opacityLabel)
-        addRow(form, 2, "不透明度", sliderRow)
-
-        val hint = JLabel("设置会立即生效。")
-        hint.foreground = java.awt.Color(0x77, 0x77, 0x77)
-
-        val content = JPanel(BorderLayout(0, 12))
-        content.add(title, BorderLayout.NORTH)
-        content.add(form, BorderLayout.CENTER)
-        content.add(hint, BorderLayout.SOUTH)
-        root.add(content, BorderLayout.CENTER)
-
-        val closeButton = JButton("关闭")
-        closeButton.addActionListener { dispose() }
-        val bottom = JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0))
-        bottom.add(closeButton)
-        root.add(bottom, BorderLayout.SOUTH)
-
-        contentPane = root
-        syncFromConfig()
-        installListeners()
-
+        styleAppleWindow()
+        contentPane = SettingsPanel(config, onApply) { dispose() }
+        pack()
+        setLocationRelativeTo(owner)
+        enableWindowDrag()
         rootPane.registerKeyboardAction(
             { dispose() },
             KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
             JComponent.WHEN_IN_FOCUSED_WINDOW,
         )
-        pack()
-        setLocationRelativeTo(owner)
+    }
+}
+
+/** 角丸カードの中身。ダイアログなしでも描画できるよう分離している。 */
+class SettingsPanel(
+    private val config: AppConfig,
+    private val onApply: () -> Unit,
+    private val onDone: () -> Unit,
+) : RoundedPanel(14, AppleUI.windowBg) {
+
+    init {
+        border = BorderFactory.createEmptyBorder(22, 22, 18, 22)
+        layout = BorderLayout(0, 18)
+        add(buildHeader(), BorderLayout.NORTH)
+        add(buildForm(), BorderLayout.CENTER)
+        add(buildFooter(), BorderLayout.SOUTH)
+        preferredSize = Dimension(392, preferredSize.height)
     }
 
-    private fun addRow(form: JPanel, row: Int, label: String, comp: JComponent) {
-        val labelConstraints = GridBagConstraints().apply {
-            gridx = 0
-            gridy = row
-            anchor = GridBagConstraints.LINE_START
-            insets = Insets(4, 0, 4, 12)
-        }
-        form.add(JLabel(label), labelConstraints)
-
-        val compConstraints = GridBagConstraints().apply {
-            gridx = 1
-            gridy = row
-            weightx = 1.0
-            fill = GridBagConstraints.HORIZONTAL
-            insets = Insets(4, 0, 4, 0)
-        }
-        form.add(comp, compConstraints)
+    private fun buildHeader(): JComponent {
+        val box = JPanel()
+        box.isOpaque = false
+        box.layout = BoxLayout(box, BoxLayout.Y_AXIS)
+        box.alignmentX = 0f
+        box.add(label("猫鱿 设置", 17, AppleUI.text, bold = true))
+        box.add(Box.createVerticalStrut(4))
+        box.add(label("外观与窗口", 12, AppleUI.secondary))
+        return box
     }
 
-    private fun syncFromConfig() {
-        sizeBox.selectedIndex = when (config.sizeKey) {
-            "small" -> 0
-            "medium" -> 1
-            else -> 2
-        }
-        alwaysOnTopBox.isSelected = config.alwaysOnTop
-        val percent = (config.opacity * 100).roundToInt().coerceIn(30, 100)
-        opacitySlider.value = percent
-        opacityLabel.text = "$percent%"
-    }
+    private fun buildForm(): JComponent {
+        val form = JPanel()
+        form.isOpaque = false
+        form.layout = BoxLayout(form, BoxLayout.Y_AXIS)
 
-    private fun installListeners() {
-        sizeBox.addActionListener {
-            config.sizeKey = when (sizeBox.selectedIndex) {
+        val size = SegmentedControl(
+            options = listOf("小", "中", "大"),
+            initialIndex = when (config.sizeKey) {
+                "small" -> 0
+                "medium" -> 1
+                else -> 2
+            },
+        ) { index ->
+            config.sizeKey = when (index) {
                 0 -> "small"
                 1 -> "medium"
                 else -> "large"
             }
-            apply()
+            applyAndSave()
         }
-        alwaysOnTopBox.addItemListener {
-            config.alwaysOnTop = alwaysOnTopBox.isSelected
-            apply()
+
+        val alwaysOnTop = AppleSwitch(config.alwaysOnTop) { checked ->
+            config.alwaysOnTop = checked
+            applyAndSave()
         }
-        opacitySlider.addChangeListener {
-            val percent = opacitySlider.value
-            opacityLabel.text = "$percent%"
-            config.opacity = percent / 100f
+
+        val slider = AppleSlider(30, 100, (config.opacity * 100).roundToInt().coerceIn(30, 100))
+        val percent = label(percentText(slider.value), 12, AppleUI.secondary).apply {
+            horizontalAlignment = SwingConstants.RIGHT
+            preferredSize = Dimension(40, 24)
+        }
+        slider.addChangeListener {
+            val value = slider.value
+            percent.text = percentText(value)
+            config.opacity = value / 100f
             onApply()
-            if (!opacitySlider.valueIsAdjusting) config.save()
+            if (!slider.valueIsAdjusting) config.save()
         }
+        val sliderRow = JPanel(BorderLayout(10, 0))
+        sliderRow.isOpaque = false
+        sliderRow.add(slider, BorderLayout.CENTER)
+        sliderRow.add(percent, BorderLayout.EAST)
+        sliderRow.preferredSize = Dimension(196, 24)
+
+        form.add(row("大小", size))
+        form.add(Box.createVerticalStrut(10))
+        form.add(row("总在最前", alwaysOnTop))
+        form.add(Box.createVerticalStrut(10))
+        form.add(row("不透明度", sliderRow))
+        return form
     }
 
-    private fun apply() {
+    private fun row(text: String, control: JComponent): JComponent {
+        val row = JPanel(BorderLayout(12, 0))
+        row.isOpaque = false
+        row.alignmentX = JComponent.LEFT_ALIGNMENT
+        row.maximumSize = Dimension(Int.MAX_VALUE, 30)
+        row.add(
+            label(text, 13, AppleUI.text).apply { preferredSize = Dimension(84, 30) },
+            BorderLayout.WEST,
+        )
+        row.add(ControlHolder(control), BorderLayout.CENTER)
+        return row
+    }
+
+    private fun buildFooter(): JComponent {
+        val footer = JPanel(BorderLayout(0, 14))
+        footer.isOpaque = false
+
+        val separator = JPanel()
+        separator.isOpaque = true
+        separator.background = AppleUI.separator
+        separator.preferredSize = Dimension(1, 1)
+
+        val buttons = JPanel(FlowLayout(FlowLayout.RIGHT, 0, 0))
+        buttons.isOpaque = false
+        buttons.add(AppleButton("完成", primary = true) { onDone() })
+
+        footer.add(separator, BorderLayout.NORTH)
+        footer.add(buttons, BorderLayout.SOUTH)
+        return footer
+    }
+
+    private fun applyAndSave() {
         onApply()
         config.save()
+    }
+}
+
+/** 右寄せ・縦中央で 1 個のコントロールを置く。 */
+private class ControlHolder(private val control: JComponent) : JPanel() {
+    init {
+        isOpaque = false
+        layout = null
+        preferredSize = control.preferredSize
+        add(control)
+    }
+
+    override fun doLayout() {
+        val width = minOf(control.preferredSize.width, this.width)
+        val height = minOf(control.preferredSize.height, this.height)
+        control.setBounds(this.width - width, (this.height - height) / 2, width, height)
     }
 }
