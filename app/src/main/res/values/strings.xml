@@ -81,7 +81,10 @@
     <string name="btn_edit_keys">文字を編集</string>
     <string name="btn_add_trigger">＋ 文字の反応を追加</string>
     <string name="dialog_keys_title">反応する文字</string>
-    <string name="dialog_keys_hint">例: あ う (スペース区切りで複数OK)</string>
+    <string name="dialog_keys_hint">1つずつ追加します。「スペース」も登録できます。</string>
+    <string name="btn_add_key">追加</string>
+    <string name="btn_add_space">スペース</string>
+    <string name="toast_keys_duplicate">同じ文字が既にあります</string>
     <string name="btn_ok">OK</string>
     <string name="btn_cancel">キャンセル</string>
     <string name="toast_keys_empty">文字を1つ以上入力してください</string>

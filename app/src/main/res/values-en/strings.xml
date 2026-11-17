@@ -81,7 +81,10 @@
     <string name="btn_edit_keys">Edit characters</string>
     <string name="btn_add_trigger">+ Add character trigger</string>
     <string name="dialog_keys_title">Trigger characters</string>
-    <string name="dialog_keys_hint">e.g. a u ! (separate with spaces)</string>
+    <string name="dialog_keys_hint">Add one key at a time. You can also add "Space".</string>
+    <string name="btn_add_key">Add</string>
+    <string name="btn_add_space">Space</string>
+    <string name="toast_keys_duplicate">That key is already added</string>
     <string name="btn_ok">OK</string>
     <string name="btn_cancel">Cancel</string>
     <string name="toast_keys_empty">Enter at least one character</string>

@@ -1281,6 +1281,7 @@ class MainActivity : Activity() {
     private val CAT_TRIGGER = "trigger"
     private var pendingCategory = ""
     private var pendingIndex = -1
+    private var pendingNewTriggerKeys: MutableList<String>? = null
     private val thumbCache = object : LruCache<String, Bitmap>(thumbCacheBytes()) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.allocationByteCount
     }
@@ -1480,7 +1481,10 @@ class MainActivity : Activity() {
                 addView(spacer(8))
                 addView(Button(this@MainActivity).apply {
                     text = getString(R.string.btn_add_image)
-                    setOnClickListener { pickImages(CAT_TRIGGER, ti) }
+                    setOnClickListener {
+                        pendingNewTriggerKeys = null
+                        pickImages(CAT_TRIGGER, ti)
+                    }
                 })
             })
         }
@@ -1490,11 +1494,8 @@ class MainActivity : Activity() {
             text = getString(R.string.btn_add_trigger)
             setOnClickListener {
                 showKeysDialog(emptyList()) { keys ->
-                    val all = Prefs.getTriggers(this@MainActivity)
-                    all.add(Prefs.Trigger(keys, mutableListOf()))
-                    Prefs.setTriggers(this@MainActivity, all)
-                    renderImages()
-                    pickImages(CAT_TRIGGER, all.size - 1) // そのまま画像選択へ
+                    pendingNewTriggerKeys = keys
+                    pickImages(CAT_TRIGGER, -1) // 画像を選んでから項目を作る
                 }
             }
         })
@@ -1505,11 +1506,8 @@ class MainActivity : Activity() {
             addView(Button(this@MainActivity).apply {
                 text = getString(R.string.btn_add_delete_trigger)
                 setOnClickListener {
-                    val all = Prefs.getTriggers(this@MainActivity)
-                    all.add(Prefs.Trigger(mutableListOf(Prefs.DELETE_KEY), mutableListOf()))
-                    Prefs.setTriggers(this@MainActivity, all)
-                    renderImages()
-                    pickImages(CAT_TRIGGER, all.size - 1) // そのまま画像選択へ
+                    pendingNewTriggerKeys = mutableListOf(Prefs.DELETE_KEY)
+                    pickImages(CAT_TRIGGER, -1) // 画像を選んでから項目を作る
                 }
             })
         }
@@ -1517,37 +1515,126 @@ class MainActivity : Activity() {
 
     private fun formatKeys(keys: List<String>): String =
         keys.joinToString(" ") {
-            if (it == Prefs.DELETE_KEY) getString(R.string.key_delete) else getString(R.string.key_format, it)
+            when {
+                it == Prefs.DELETE_KEY -> getString(R.string.key_delete)
+                it == " " || it == "　" -> getString(R.string.btn_add_space)
+                else -> getString(R.string.key_format, it)
+            }
         }
 
-    /** 反応する文字を入力するダイアログ(スペース区切りで複数) */
+    /** 反応する文字を1つずつチップで追加する。スペースも登録できる */
     private fun showKeysDialog(current: List<String>, onOk: (MutableList<String>) -> Unit) {
+        val keys = current.distinct().toMutableList()
+        val chipBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val chipScroll = ScrollView(this).apply {
+            addView(chipBox)
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(180)
+            )
+        }
         val input = EditText(this).apply {
-            setText(current.joinToString(" "))
             hint = getString(R.string.dialog_keys_hint)
             setSingleLine(true)
         }
-        val box = LinearLayout(this).apply {
-            setPadding(dp(20), dp(8), dp(20), 0)
-            addView(input, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        fun renderChips() {
+            chipBox.removeAllViews()
+            if (keys.isEmpty()) {
+                chipBox.addView(TextView(this).apply {
+                    text = getString(R.string.empty_hint)
+                    textSize = 12f
+                    setTextColor(sub)
+                    setPadding(dp(4), dp(4), dp(4), dp(4))
+                })
+                return
+            }
+            keys.forEach { key ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(4), dp(2), dp(4), dp(2))
+                }
+                row.addView(TextView(this).apply {
+                    text = if (key == " ") getString(R.string.btn_add_space) else key
+                    textSize = 14f
+                    setTextColor(ink)
+                    maxLines = 1
+                    ellipsize = TextUtils.TruncateAt.END
+                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+                })
+                row.addView(TextView(this).apply {
+                    text = "×"
+                    textSize = 18f
+                    setTextColor(danger)
+                    setPadding(dp(12), dp(4), dp(4), dp(4))
+                    isClickable = true
+                    setOnClickListener {
+                        keys.remove(key)
+                        renderChips()
+                    }
+                })
+                chipBox.addView(row)
+            }
         }
-        AlertDialog.Builder(this)
+
+        fun addKey(value: String, trim: Boolean = true) {
+            val key = if (trim) value.trim() else value
+            if (key.isEmpty()) {
+                Toast.makeText(this, getString(R.string.toast_keys_empty), Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (keys.any { it == key }) {
+                Toast.makeText(this, getString(R.string.toast_keys_duplicate), Toast.LENGTH_SHORT).show()
+                return
+            }
+            keys.add(key)
+            input.setText("")
+            renderChips()
+        }
+
+        val addButton = Button(this).apply {
+            text = getString(R.string.btn_add_key)
+            textSize = 13f
+            setOnClickListener { addKey(input.text.toString()) }
+        }
+        val spaceButton = Button(this).apply {
+            text = getString(R.string.btn_add_space)
+            textSize = 13f
+            setOnClickListener { addKey(" ", trim = false) }
+        }
+
+        renderChips()
+        val addRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            addView(input, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(addButton)
+            addView(spaceButton)
+        }
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(8), dp(20), 0)
+            addView(addRow)
+            addView(spacer(8))
+            addView(chipScroll)
+        }
+        val dialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.dialog_keys_title))
             .setView(box)
-            .setPositiveButton(getString(R.string.btn_ok)) { _, _ ->
-                val keys = input.text.toString()
-                    .split(Regex("[\\s\\u3000]+"))
-                    .filter { it.isNotEmpty() }
-                    .distinct()
-                    .toMutableList()
+            .setPositiveButton(getString(R.string.btn_ok), null)
+            .setNegativeButton(getString(R.string.btn_cancel), null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 if (keys.isEmpty()) {
                     Toast.makeText(this, getString(R.string.toast_keys_empty), Toast.LENGTH_SHORT).show()
                 } else {
-                    onOk(keys)
+                    onOk(keys.toMutableList())
+                    dialog.dismiss()
                 }
             }
-            .setNegativeButton(getString(R.string.btn_cancel), null)
-            .show()
+        }
+        dialog.show()
     }
 
     /** サムネイルを横スクロールで並べる */
@@ -1634,7 +1721,14 @@ class MainActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode != RESULT_OK || data == null) return
+        if (resultCode != RESULT_OK || data == null) {
+            if (requestCode == REQ_PICK) {
+                pendingNewTriggerKeys = null
+                pendingCategory = ""
+                pendingIndex = -1
+            }
+            return
+        }
 
         if (requestCode == REQ_EXPORT) {
             data.data?.let { exportBackup(it) }
@@ -1674,7 +1768,10 @@ class MainActivity : Activity() {
                 if (added.size < uris.size) {
                     Toast.makeText(this, getString(R.string.toast_import_failed), Toast.LENGTH_SHORT).show()
                 }
-                if (added.isEmpty()) return@runOnUiThread
+                if (added.isEmpty()) {
+                    if (category == CAT_TRIGGER) pendingNewTriggerKeys = null
+                    return@runOnUiThread
+                }
 
                 when (category) {
                     CAT_STEP -> {
@@ -1684,10 +1781,14 @@ class MainActivity : Activity() {
                     }
                     CAT_TRIGGER -> {
                         val all = Prefs.getTriggers(this)
+                        val newKeys = pendingNewTriggerKeys
                         if (index in all.indices) {
                             all[index].images.addAll(added)
-                            Prefs.setTriggers(this, all)
+                        } else if (newKeys != null) {
+                            all.add(Prefs.Trigger(newKeys.toMutableList(), added.toMutableList()))
                         }
+                        pendingNewTriggerKeys = null
+                        Prefs.setTriggers(this, all)
                     }
                     Prefs.CAT_IDLE -> {
                         val list = Prefs.getImages(this, Prefs.CAT_IDLE)

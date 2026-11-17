@@ -80,7 +80,10 @@
     <string name="btn_edit_keys">编辑文字</string>
     <string name="btn_add_trigger">＋ 添加文字反应</string>
     <string name="dialog_keys_title">触发的文字</string>
-    <string name="dialog_keys_hint">例如：啊 呜（用空格分隔可输入多个）</string>
+    <string name="dialog_keys_hint">一次添加一个，也可以添加“空格”。</string>
+    <string name="btn_add_key">添加</string>
+    <string name="btn_add_space">空格</string>
+    <string name="toast_keys_duplicate">这个文字已经添加过了</string>
     <string name="btn_ok">确定</string>
     <string name="btn_cancel">取消</string>
     <string name="toast_keys_empty">请至少输入一个文字</string>

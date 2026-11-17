@@ -81,7 +81,10 @@
     <string name="btn_edit_keys">문자 편집</string>
     <string name="btn_add_trigger">+ 문자 반응 추가</string>
     <string name="dialog_keys_title">반응할 문자</string>
-    <string name="dialog_keys_hint">예: 아 우 (공백으로 구분해 여러 개 가능)</string>
+    <string name="dialog_keys_hint">한 번에 하나씩 추가합니다. "공백"도 등록할 수 있습니다.</string>
+    <string name="btn_add_key">추가</string>
+    <string name="btn_add_space">공백</string>
+    <string name="toast_keys_duplicate">이미 추가된 문자입니다</string>
     <string name="btn_ok">확인</string>
     <string name="btn_cancel">취소</string>
     <string name="toast_keys_empty">문자를 1개 이상 입력하세요</string>
