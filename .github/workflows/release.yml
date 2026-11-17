@@ -1,0 +1,182 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.4"
+
+      - name: Read version
+        id: version
+        run: |
+          echo "version=$(grep '^versionName=' version.properties | cut -d= -f2 | tr -d ' \r')" >> "$GITHUB_OUTPUT"
+
+      - name: Restore signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Signing secrets are required for a release build"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > app/typingpet.jks
+
+      - name: Build release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle testDebugUnitTest assembleRelease
+
+      - name: Prepare artifact
+        run: cp app/build/outputs/apk/release/app-release.apk "catsquid-${{ steps.version.outputs.version }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: catsquid-*.apk
+          if-no-files-found: error
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f app/typingpet.jks
+
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.10.2"
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          echo "version=$(grep '^versionName=' version.properties | cut -d= -f2 | tr -d ' \r')" >> "$GITHUB_OUTPUT"
+
+      - name: Test and build fat jar
+        shell: bash
+        working-directory: desktop
+        run: gradle --no-daemon test fatJar
+
+      - name: Package distribution zip
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then PLATFORM=windows; else PLATFORM=linux; fi
+          bash scripts/package_desktop_dist.sh "$PLATFORM" "desktop/build/libs/catsquid-desktop-${{ steps.version.outputs.version }}.jar"
+
+      - name: Build app image with jpackage (optional)
+        shell: bash
+        continue-on-error: true
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then PLATFORM=windows; else PLATFORM=linux; fi
+          VERSION="${{ steps.version.outputs.version }}"
+          JAR_NAME="catsquid-desktop-${VERSION}.jar"
+          OUT="dist/desktop/catsquid-desktop-${VERSION}-${PLATFORM}-app-image.zip"
+          mkdir -p desktop/build/jpackage/input dist/desktop
+          rm -rf desktop/build/jpackage/CatSquid
+          cp "desktop/build/libs/${JAR_NAME}" desktop/build/jpackage/input/
+          jpackage --type app-image --name CatSquid --app-version "$VERSION" \
+            --input desktop/build/jpackage/input --main-jar "$JAR_NAME" \
+            --main-class com.maoyou.typingpet.desktop.MainKt \
+            --add-modules java.desktop,java.logging \
+            --java-options "-Dfile.encoding=UTF-8" \
+            --dest desktop/build/jpackage
+          if [ "$PLATFORM" = "linux" ]; then
+            (cd desktop/build/jpackage && zip -q -r -y "$GITHUB_WORKSPACE/$OUT" CatSquid)
+          else
+            powershell.exe -NoProfile -Command "Compress-Archive -Path 'desktop/build/jpackage/CatSquid' -DestinationPath '${OUT}' -Force"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.os }}
+          path: dist/desktop/*.zip
+          if-no-files-found: error
+
+  publish:
+    name: Publish release
+    needs: [android, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Read version
+        id: version
+        run: |
+          echo "version=$(grep '^versionName=' version.properties | cut -d= -f2 | tr -d ' \r')" >> "$GITHUB_OUTPUT"
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${GITHUB_REF_NAME}"
+          case "$TAG" in
+            v*) ;;
+            *) TAG="v$VERSION" ;;
+          esac
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "::warning::Tag $TAG does not match version $VERSION"
+          fi
+
+          cat > release-notes.md <<EOF
+          CatSquid $VERSION
+
+          A floating cat pet that reacts to typing.
+
+          Assets
+          - catsquid-$VERSION.apk: Android APK (signed)
+          - catsquid-desktop-$VERSION-linux.zip / -windows.zip: runnable JAR with launcher (Java 21 required)
+          - catsquid-desktop-$VERSION-linux-app-image.zip / -windows-app-image.zip: self-contained app image
+
+          Desktop notes
+          - Global key capture uses X11 on Linux; native Wayland windows are not observed.
+          - A compositor is needed for the transparent rounded window.
+          EOF
+
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" release-assets/* -R "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG" release-assets/* -R "$GITHUB_REPOSITORY" \
+              --title "CatSquid $VERSION" --notes-file release-notes.md
+          fi
